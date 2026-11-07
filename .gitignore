@@ -1,0 +1,6 @@
+node_modules/
+dist/
+dist-hosted/
+_to_delete/
+*.timestamp-*.mjs
+.env

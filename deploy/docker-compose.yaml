@@ -1,0 +1,124 @@
+# podotype — DISTRIBUTION compose file. This is the one meant to be piped
+# straight into `docker compose`, not cloned/edited locally — e.g.:
+#
+#   curl -fsS https://raw.githubusercontent.com/OneEyed-King/podotype-deploy/main/docker-compose.yaml \
+#     | docker compose -f - up -d
+#
+# Two things make that actually work, both on purpose:
+#
+#   1. No `build:` anywhere — only `image:` pulls, from GitHub Container
+#      Registry (ghcr.io/oneeyed-king/podotype-*), not Docker Hub — moved
+#      there because Docker Hub's free tier only allows one private repo,
+#      and these images need to stay private for now (see README's
+#      privacy/licensing notes). GHCR is unlimited private repos free.
+#      Piping a compose file via stdin gives Compose no project directory
+#      to build FROM (the user never cloned this repo), so any `build:`
+#      here would just fail looking for a local Dockerfile that doesn't
+#      exist wherever they happened to run the command. See
+#      ../docker-compose.yml for the buildable, local-development version
+#      of this same stack — THAT file is what contributors use; this one
+#      is what a real install runs. Keep them in sync by hand for now
+#      (see that file's own comments for the full reasoning behind each
+#      setting — this file doesn't repeat all of it to stay short).
+#   2. `name: podotype` below, pinned. Without a project directory (same
+#      stdin situation), Compose falls back to naming the project after
+#      the CURRENT WORKING DIRECTORY the command happens to be run from —
+#      so the exact same install run from ~/tmp one day and ~/apps
+#      another would silently create two different stacks with two
+#      different sets of volumes, and it'd look like the second run lost
+#      all its data. Pinning the name avoids that regardless of where
+#      the command is run.
+#
+# CONTAINER COUNT: 2 — `app` (engine + web's old static-UI job + beyla,
+# all in one container — see apps/self-hosted/engine/Dockerfile and
+# docker-entrypoint.sh) and `clickhouse`. This used to be 4 separate
+# containers (engine, web, beyla, clickhouse); engine/web/beyla are
+# combined here because the split only earns its keep once "web" is a
+# genuinely separate, multi-tenant HOSTED routing layer (see server.js's
+# own SPLIT comment) — self-hosted runs on one machine for one operator,
+# so there's no boundary for that split to protect, just extra containers
+# and an internal network hop for nothing. The hosted product keeps the
+# split; it's built from apps/hosted/*, not this file.
+#
+# Port/secret overrides here work the same way as Coroot's own install
+# line (LICENSE_KEY="..." docker compose -f - up -d) — set them as
+# environment variables ahead of the curl, since there's no local .env
+# file for Compose to read in the piped flow, e.g.:
+#
+#   PODOTYPE_UI_PORT=9000 PODOTYPE_ENGINE_API_KEY=some-real-secret \
+#     curl -fsS .../deploy/docker-compose.yaml | docker compose -f - up -d
+#
+# (Running this file locally instead — `docker compose -f deploy/docker-compose.yaml up -d`
+# from a checkout — still reads a `.env` in the current directory as usual.)
+
+name: podotype
+
+services:
+  app:
+    image: ghcr.io/oneeyed-king/podotype-app:latest
+    container_name: podotype-app
+    restart: unless-stopped
+    # beyla now runs INSIDE this container (see docker-entrypoint.sh) —
+    # it needs the same host-level access it always did as its own
+    # container: full PID visibility (pid: host), privileged for the eBPF
+    # attach itself, and unlimited locked memory for the eBPF maps
+    # (ulimits.memlock). The engine side of this container only strictly
+    # needs docker.sock/proc, but since the container as a whole must run
+    # privileged+pid:host for beyla's sake anyway, there's no partial/
+    # least-privilege option here — same trade-off the old `beyla` service
+    # already made on its own.
+    cgroup: host
+    pid: host
+    privileged: true
+    ulimits:
+      memlock: -1
+    init: true
+    environment:
+      STALE_AFTER_SECONDS: "60"
+      SLOW_THRESHOLD_MS: "500"
+      CLICKHOUSE_URL: "http://clickhouse:8123"
+      CLICKHOUSE_DATABASE: "otel"
+      ENGINE_API_KEY: "${PODOTYPE_ENGINE_API_KEY:-}"
+      # beyla (the background process this container also runs) reads
+      # these same env vars — see config.yml/Dockerfile. Endpoint is
+      # localhost now, not a separate container's service name.
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/json"
+      OTEL_EXPORTER_OTLP_TRACES_PROTOCOL: "http/json"
+      OTEL_METRICS_EXPORTER: "none"
+    volumes:
+      - podotype-app-state:/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc:/hostproc:ro
+      - /sys/kernel/debug:/sys/kernel/debug:ro
+      - /sys/kernel/tracing:/sys/kernel/tracing:ro
+    ports:
+      - "${PODOTYPE_UI_PORT:-8973}:8080"
+      - "${PODOTYPE_OTLP_PORT:-4318}:4318"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    networks: [podotype]
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_SKIP_USER_SETUP: "1"
+    volumes:
+      - podotype-clickhouse-data:/var/lib/clickhouse
+    ports:
+      - "${PODOTYPE_CLICKHOUSE_PORT:-8123}:8123"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks: [podotype]
+
+networks:
+  podotype: {}
+
+volumes:
+  podotype-app-state: {}
+  podotype-clickhouse-data: {}

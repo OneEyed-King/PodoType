@@ -1,0 +1,194 @@
+# Baked into podotype's own beyla image (see ./Dockerfile) at build time —
+# NOT mounted from a volume at runtime. "Watch every process on the host,
+# unconditionally" — this is the entire config, on purpose: see the big
+# comment block in the root docker-compose.yml for why podotype doesn't
+# offer a per-service pick list here (same model as Coroot's node-agent).
+#
+# Beyla's docs describe a `containers_only: true` selector meant to
+# replace exactly this exe_path-guessing approach with a categorical
+# "only processes actually inside a container" check (network-namespace
+# based). Tried it in production on this project (sync25) — it made
+# things WORSE, not better: Beyla's own Prometheus scrape went from ~30
+# real metric series down to just its internal promhttp counter, i.e. it
+# matched zero processes, even running privileged+pid:host. Beyla's own
+# docs have an explicit escape hatch for this: "If Beyla doesn't have
+# enough permissions to perform the network namespace inspection, it
+# ignores this option" — something about that check isn't reliable in
+# this container setup, and debugging Beyla's internal netns detection
+# further is out of scope here. Reverted the "what to watch" side back to
+# the known-working exe_path: "*" + exe_path exclude list; keeping only
+# the ADDITIVE, low-risk part of that change below (container_name
+# excludes for our own infra containers, which doesn't touch discovery of
+# real processes at all, only removes two extra ones).
+discovery:
+  instrument:
+    - exe_path: "*"
+  # Two exclusion mechanisms doing two different jobs:
+  #  1) exe_path globs for HOST-level noise Beyla would otherwise watch
+  #     just by running on this machine at all (containerd, dockerd,
+  #     sshd, systemd, cron) — not exhaustive, but confirmed to actually
+  #     work, unlike containers_only above.
+  #  2) container_name for podotype's OWN containers specifically —
+  #     matches the real Docker container name (a separate, documented
+  #     Beyla selector from exe_path), not a guess at which binary runs
+  #     inside them:
+  #       - podotype-app: makes its own outbound HTTP calls to ClickHouse
+  #         (server.js's queryClickHouse) and to the Docker socket — not
+  #         real traffic anyone watching this dashboard cares about.
+  #       - podotype-beyla: Beyla watching itself.
+  #       - SAAS-CLICKHOUSE BRANCH: replacing the OSS branch's "Tempo runs
+  #         inside app" case. There's no separate otel-collector container
+  #         on this branch anymore — `app` itself receives OTLP/JSON
+  #         directly and forwards it into ClickHouse (see server.js's
+  #         startOtlpIngestServer / ingestOtlpTraces), so that traffic is
+  #         already covered by the podotype-app exclude above. The one
+  #         remaining new source of self-instrumentation noise is the
+  #         clickhouse container itself (its own HTTP healthcheck ping,
+  #         background merge/TTL activity) — same class of noise Tempo
+  #         used to cause when it ran inside `app`, confirmed as a REAL
+  #         problem in production on this project (disk hit 98%+ full
+  #         while 4h retention should have comfortably fit 5 real dummy
+  #         services in a 7GB volume), not a theoretical one. Excluding it
+  #         here is precautionary based on that same confirmed failure
+  #         mode, not yet re-confirmed against this specific branch
+  #         (couldn't run this branch live from the environment it was
+  #         written in — see server.js's "Trace storage backend" comment).
+  exclude_instrument:
+    - exe_path: "*containerd*"
+    - exe_path: "*dockerd*"
+    - exe_path: "*sshd*"
+    - exe_path: "*systemd*"
+    - exe_path: "*cron*"
+    # Added for the HOSTED/thin-agent build (deploy/docker-compose.agent.yaml)
+    # — this same image runs on a customer's real cloud VM, not a
+    # dedicated dummy-stack box, so exe_path: "*" also picks up the host's
+    # own system daemons: chrony (NTP), cloud-init/instance agents
+    # (amazon-ssm-agent, google_guest_agent, walinuxagent), log/package
+    # management (rsyslogd, unattended-upgrades, snapd, apt/dpkg),
+    # network/login plumbing (NetworkManager, dhclient, polkitd, agetty),
+    # and the docker-compose CLI itself (runs briefly on every deploy, not
+    # a real service). None of these are the customer's own application —
+    # confirmed live in production as the exact noise reported showing up
+    # in the hosted trace list. Self-hosted's dedicated boxes rarely run
+    # most of these, so this list is additive/hosted-motivated but safe
+    # for both builds (excluding a process that never runs is a no-op).
+    - exe_path: "*chronyd*"
+    - exe_path: "*amazon-ssm-agent*"
+    - exe_path: "*google_guest_agent*"
+    - exe_path: "*waagent*"
+    - exe_path: "*walinuxagent*"
+    - exe_path: "*rsyslogd*"
+    - exe_path: "*unattended-upgr*"
+    - exe_path: "*snapd*"
+    - exe_path: "*NetworkManager*"
+    - exe_path: "*dhclient*"
+    - exe_path: "*polkitd*"
+    - exe_path: "*agetty*"
+    - exe_path: "*docker-compose*"
+    - container_name: "*podotype-app*"
+    - container_name: "*podotype-beyla*"
+    - container_name: "*podotype-clickhouse*"
+    - container_name: "*podotype-agent*"
+    - container_name: "*podotype-collector*"
+    - container_name: "*podotype-license-server*"
+    # FIX — the hosted stack's actual compose project names its containers
+    # with a "-hosted-" infix (see deploy/docker-compose.hosted*.yaml /
+    # docker-compose.hosted.prod.yaml): "podotype-hosted-license-server",
+    # "podotype-hosted-collector", "podotype-hosted-clickhouse",
+    # "podotype-hosted-postgres-1". None of the globs above match those —
+    # "*podotype-license-server*" requires that exact substring, and
+    # "podotype-hosted-license-server" doesn't contain it (the "-hosted-"
+    # breaks the run). Confirmed live: self-traffic (license-server's own
+    # Postgres/ClickHouse queries) was flooding the unfiltered trace list
+    # instead of being excluded. Added rather than widened in place so the
+    # plain self-hosted names above still match self-hosted's own
+    # (un-prefixed) container names too.
+    - container_name: "*podotype-hosted-app*"
+    - container_name: "*podotype-hosted-beyla*"
+    - container_name: "*podotype-hosted-clickhouse*"
+    - container_name: "*podotype-hosted-agent*"
+    - container_name: "*podotype-hosted-collector*"
+    - container_name: "*podotype-hosted-license-server*"
+    - container_name: "*podotype-hosted-postgres*"
+
+# Request-rate and error-rate (the other two thirds of RED — duration
+# already comes from real span durations we pull out of ClickHouse, see
+# server.js's recentSpanSamples) need something a plain SELECT against 20
+# rows can't give cheaply: an accurate count of EVERY request, not just the
+# ones that happen to be among the most recently queried traces. Beyla
+# already counts every request internally to build its histograms — this
+# just turns on the Prometheus endpoint it exposes that data on. Port is
+# only reachable from `app` over the internal `podotype` docker network
+# (nothing publishes it to the host), so this adds no new attack surface
+# and nothing for a self-hosted user to expose, firewall, or manage —
+# same "zero extra moving parts" bar as everything else here.
+prometheus_export:
+  port: 9464
+  path: /metrics
+
+# TEMPORARY DIAGNOSTIC — remove once the cause below is confirmed. Live
+# evidence (checked directly against ClickHouse, across every service):
+# ONLY same-container Docker HEALTHCHECK traffic is being traced, ZERO of
+# dummy-stack's real cross-container /work traffic (loadgen -> go/java/
+# node/python-svc every 2s) shows up anywhere, even when asking for every
+# candidate trace unfiltered. Beyla's docs and Beyla's own mechanism (it
+# hooks the target process's own accept/read syscalls via pid:host, which
+# in theory doesn't care whether the caller is on localhost or another
+# container) don't explain why this would happen, and searching Beyla's
+# GitHub issues didn't surface this exact symptom either — so rather than
+# guess at a fix blind, get Beyla's own account of what it's capturing.
+# `text` prints every trace Beyla captures directly to its own container
+# logs (grafana.com/docs/beyla/latest — trace_printer accepts disabled/
+# counter/text/json/json_indent). If `docker logs podotype-beyla-1` shows
+# GET /work here, the capture layer is fine and the bug is somewhere in
+# our own export/ingest path; if it never appears here either, Beyla
+# itself isn't seeing this traffic and the fix has to be on Beyla's side
+# (e.g. an explicit open_ports selector, or a version upgrade).
+trace_printer: text
+
+# --- Network flow metrics (backlog fix: service-map correctness) -----------
+#
+# The Service Map was built entirely from HTTP trace correlation (joining
+# spans by TraceId + ParentSpanId, in server.js's fetchServiceMap) — that's
+# only as reliable as the trace IDs themselves, and WITHOUT real
+# `traceparent` propagation from a client (which most services being
+# watched here never set up), Beyla has to SYNTHESIZE trace/span IDs
+# itself. Confirmed live, side-by-side against Coroot on the same traffic:
+# under concurrent load those synthesized IDs can collide across unrelated
+# service pairs, and the map draws an edge between two services that never
+# actually called each other. Coroot doesn't have this failure mode
+# because it correlates via actual TCP socket connections (its node-agent
+# watches real connect()/accept() syscalls), not trace IDs.
+#
+# Beyla can do the exact same thing Coroot's node-agent does — it has its
+# own eBPF network-flow observability, entirely independent of the HTTP
+# trace pipeline above, source: socket_filter (default) traces raw
+# TCP/UDP flows regardless of whether either endpoint is an instrumented
+# HTTP server. Turning it on exports beyla_network_flow_bytes (+ a
+# packets_total counter) with src_address/dst_address/src_port/dst_port
+# labels on the SAME Prometheus endpoint server.js already scrapes for RED
+# metrics (prometheus_export above) — server.js resolves those IPs to
+# container names itself (see listContainers' new ipAddresses field and
+# fetchNetworkFlowEdges), the same "resolve from the outside, don't trust
+# self-reported names" philosophy resolveBeylaServiceName already uses for
+# HTTP service names. This runs ALONGSIDE the existing trace-based map,
+# not instead of it — fetchServiceMap merges both, preferring network-flow
+# edges (real connections) for WHICH edges exist, and trace data (when it
+# agrees) for the latency/call-count detail a raw byte-count flow can't
+# provide.
+#
+# Already has everything this needs — privileged: true, pid: host, and
+# the debugfs/tracefs mounts below (see docker-compose.yml's beyla
+# service) satisfy the same prerequisites Coroot's own node-agent needs
+# for the identical kernel-level capture, no compose changes required.
+#
+# NOT YET CONFIRMED against a live deployment (this was written and
+# tested for config/logic correctness, not against a running Beyla
+# instance — see this project's own "confirmed live" bar elsewhere in
+# this file). GET /api/debug/beyla-metrics on the engine dumps Beyla's
+# raw scrape text directly — check it for beyla_network_flow_* lines and
+# their exact label names after deploying this, the same way RED metrics'
+# own naming was confirmed against a real scrape (see server.js's
+# isRequestDurationCountMetric comment).
+network:
+  enable: true

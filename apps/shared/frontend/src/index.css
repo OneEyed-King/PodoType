@@ -1,0 +1,154 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Theme tokens — "Cobalt & Cream": light is now the default/primary
+ * look (not an afterthought next to a dark-terminal theme) — a warm
+ * off-white background, near-black navy ink, and a single rich cobalt
+ * accent for brand, buttons, links, and selected states. Dark mode is
+ * a deep-navy variant (still available, just secondary) rather than
+ * the gray/graphite/charcoal this replaced, so accent and background
+ * stay in the same cool blue-black family instead of warm-neutral.
+ * Status colors (up/down/slow) stay the universal dashboard
+ * red/green/orange in both themes — now that the accent is blue
+ * rather than warm red/orange, "down" can go back to a plain red
+ * instead of needing a rose/magenta shift to avoid colliding with the
+ * accent's hue.
+ * Values are space-separated "R G B" (not hex) because Tailwind's
+ * <alpha-value> opacity modifiers (bg-up/10, border-up/30, used
+ * throughout pill/badge styling) require that form.
+ * ThemeToggle.jsx sets data-theme on <html> and persists the choice to
+ * localStorage; this file just supplies the two palettes it switches
+ * between. No data-theme attribute yet (before JS runs) falls back to
+ * light here first, then to the OS preference via prefers-color-scheme
+ * if it explicitly asks for dark. */
+:root {
+  --color-bg: 250 248 243;
+  --color-panel: 255 255 255;
+  --color-panel-raised: 244 241 234;
+  --color-panel-recessed: 241 238 230;
+  --color-border: 205 197 178;
+  --color-border-soft: 221 215 198;
+  --color-ink: 18 22 34;
+  --color-ink-dim: 71 78 97;
+  --color-muted: 110 117 133;
+  --color-accent: 37 70 199;
+  --color-up: 15 138 94;
+  --color-down: 196 44 45;
+  --color-slow: 180 98 12;
+  --color-unknown: 110 115 128;
+  --color-series-1: #2a78d6;
+  --color-series-2: #eb6834;
+  --color-series-3: #1baf7a;
+  --color-series-4: #eda100;
+  --color-series-5: #e87ba4;
+  --color-series-6: #008300;
+  --color-series-7: #4a3aa7;
+  --color-series-8: #e34948;
+}
+
+:root[data-theme='dark'] {
+  /* Deep navy, not gray/graphite/charcoal — stays in the same cool
+   * blue-black family as the cobalt accent instead of a warm neutral,
+   * so dark mode reads as "the same product, dimmed" rather than a
+   * different palette wearing the same accent color. */
+  --color-bg: 10 14 28;
+  --color-panel: 16 21 38;
+  --color-panel-raised: 22 28 48;
+  --color-panel-recessed: 7 10 20;
+  --color-border: 58 68 100;
+  --color-border-soft: 42 50 76;
+  --color-ink: 230 233 242;
+  --color-ink-dim: 160 168 190;
+  --color-muted: 118 126 150;
+  --color-accent: 46 84 220;
+  --color-up: 56 189 133;
+  --color-down: 229 96 91;
+  --color-slow: 224 134 56;
+  --color-unknown: 134 140 158;
+  --color-series-1: #3987e5;
+  --color-series-2: #d95926;
+  --color-series-3: #199e70;
+  --color-series-4: #c98500;
+  --color-series-5: #d55181;
+  --color-series-6: #008300;
+  --color-series-7: #9085e9;
+  --color-series-8: #e66767;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='dark']):not([data-theme='light']) {
+    --color-bg: 10 14 28;
+    --color-panel: 16 21 38;
+    --color-panel-raised: 22 28 48;
+    --color-panel-recessed: 7 10 20;
+    --color-border: 58 68 100;
+    --color-border-soft: 42 50 76;
+    --color-ink: 230 233 242;
+    --color-ink-dim: 160 168 190;
+    --color-muted: 118 126 150;
+    --color-accent: 46 84 220;
+    --color-up: 56 189 133;
+    --color-down: 229 96 91;
+    --color-slow: 224 134 56;
+    --color-unknown: 134 140 158;
+    --color-series-1: #3987e5;
+    --color-series-2: #d95926;
+    --color-series-3: #199e70;
+    --color-series-4: #c98500;
+    --color-series-5: #d55181;
+    --color-series-6: #008300;
+    --color-series-7: #9085e9;
+    --color-series-8: #e66767;
+  }
+}
+
+@layer base {
+  body {
+    font-family: theme('fontFamily.sans');
+    font-size: 13.5px;
+  }
+}
+
+@layer components {
+  /* Small solid toggle switch, reused for watch/metrics toggles. */
+  .switch {
+    @apply appearance-none w-9 h-5 rounded-full bg-border relative cursor-pointer outline-none shrink-0 transition-colors;
+  }
+  .switch:checked {
+    @apply bg-accent;
+  }
+  .switch::after {
+    content: '';
+    @apply absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-all;
+    /* Fixed near-white knob (not theme-linked) — reads clearly against
+       both the gray "off" track (bg-border) and the accent "on" track in
+       both themes, the same way most toggle switches keep a neutral
+       thumb regardless of surrounding color. */
+    background: #f4f6fa;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  }
+  .switch:checked::after {
+    left: 18px;
+  }
+
+  .pill {
+    @apply inline-block font-mono text-[12px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border;
+  }
+  .pill-up {
+    @apply bg-up/10 text-up border-up/30;
+  }
+  .pill-down {
+    @apply bg-down/10 text-down border-down/30;
+  }
+  .pill-slow {
+    @apply bg-slow/10 text-slow border-slow/30;
+  }
+  .pill-unknown {
+    @apply bg-unknown/10 text-unknown border-border;
+  }
+
+  .link-btn {
+    @apply bg-transparent border-none text-ink-dim hover:text-ink text-[13px] font-semibold cursor-pointer p-0;
+  }
+}

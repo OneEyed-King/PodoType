@@ -1,0 +1,281 @@
+# podotype (SAAS-CLICKHOUSE BRANCH) — copy this file, run
+# `docker compose up -d`, done. Everything in this file is pre-wired: no
+# downloading a separate override, no manually pointing one container at
+# another.
+#
+# This branch swaps the mainline OSS product's bundled Tempo (a child
+# process inside `engine`) for ClickHouse as the trace storage backend —
+# see engine/server.js's "Trace storage backend" comment for the full
+# reasoning (Tempo is AGPLv3, which is fine for one-instance-per-self-hosted
+# user but a real obligation for a hosted SaaS product; ClickHouse is
+# Apache 2.0, and its own TTL replaces the block-pruning watchdog
+# server.js otherwise needs to hand-roll for Tempo).
+#
+# CONTAINER COUNT: 2 — `app` and `clickhouse`. No separate otel-collector
+# container (Beyla and the OTel opt-in agents all speak OTLP/JSON
+# directly, and `app` receives that itself — see server.js's OTLP
+# ingestion comment). No `profiler`/`profiler-agent` either — continuous
+# profiling (Parca) was tried on this branch and dropped: parca-agent's
+# Docker (non-Kubernetes) container discovery never reliably resolved
+# more than one container's metadata regardless of the mount/relabel
+# fixes applied, and the newer agent version that might have fixed it
+# crash-loops on eBPF load on at least one dev host. Decided not worth
+# chasing further for v1 — may come back later via a different mechanism
+# (see this project's own notes), not via these two images.
+#
+# --- `app`: engine + web + beyla, combined into one container --------------
+# Used to be three separate containers (`engine`, `web`, `beyla`). `engine`
+# (observability logic: Docker discovery/health, ClickHouse queries,
+# alerts, retention, log clustering, OTLP ingestion, state.json) and `web`
+# (serves the compiled React dashboard, used to proxy /api/* to `engine`
+# over an authenticated HTTP boundary) were split apart because the plan
+# was for `web` to eventually become a hosted, multi-tenant routing UI
+# while `engine` stays the thing that runs on a customer's own machine —
+# see engine/server.js's own SPLIT comment for that full reasoning. That
+# split is real and worth keeping for the HOSTED product (apps/hosted/*,
+# built from its own, separate compose files) — but for self-hosted, which
+# runs on one machine for one operator, there is no multi-tenant boundary
+# for the split to protect, just an extra container and an internal
+# network hop for nothing. `web`'s old job (serve the compiled frontend) is
+# folded directly into `engine`'s server.js now (see its own "Static UI"
+# comment) — the compiled frontend is copied in at image build time, same
+# as the original single-container image did before the split ever
+# happened.
+#
+# `beyla` (see "beyla" section below for what it does and why it's
+# always-on/zero-config) is folded in the same way: its static binary
+# (copied straight out of grafana/beyla's own `FROM scratch` image, no
+# Dockerfile changes needed on Beyla's side) and config are baked into
+# this image, and docker-entrypoint.sh starts it as a background process
+# alongside the Node server, which stays the container's foreground
+# process. Beyla's host-level requirements (`pid: host`, `privileged`,
+# `ulimits.memlock`) now apply to the whole `app` container rather than a
+# separate `beyla` service — there was never a way to grant those to just
+# part of a container, so this changes nothing about the actual privilege
+# footprint, only how many containers it's spread across.
+#
+# Known, on-purpose limitations of Beyla's "watch everything, zero-config"
+# choice, worth knowing before you assume it's broken:
+#   - Outside Kubernetes, Beyla names each service after its executable file
+#     (there's no Docker/OCI container-name tier in its naming precedence) —
+#     so two containers running the same runtime (two Node services, say)
+#     will both show up as "node" from Beyla alone. `app` doesn't ask you to
+#     fix this by editing YOUR stack (that would defeat the point of any of
+#     this) — it resolves it itself, from the outside, the same way Coroot's
+#     node-agent avoids ever relying on a watched process to self-report who
+#     it is: `app` already knows every container's host-side PID (Docker's
+#     own inspect API, over the read-only docker.sock below), and Beyla
+#     stamps every span with that same host-side PID; matching the two
+#     correlates a container to whatever name Beyla actually used, with
+#     nothing added to your compose file. See server.js
+#     "resolveBeylaServiceName" for the mechanism and its one known gap
+#     (containers that fork into a child before serving requests, since only
+#     the container's own PID1 is checked). If you want deep same-runtime
+#     services disambiguated by hand anyway, OTEL_SERVICE_NAME in a service's
+#     own environment still works too — Beyla treats it as the
+#     highest-precedence name it checks — but it's optional, not required.
+#   - It runs `privileged: true` + `pid: host` unconditionally, same as
+#     Coroot's node-agent does in ITS default one-liner — a real, deliberate
+#     tradeoff (see "docker.sock" below for the equivalent reasoning applied
+#     to a different mechanism), not an oversight.
+#   - On Docker Desktop (Windows/Mac), expect it to sit there doing nothing —
+#     see root README "Why not eBPF" for the full history of why. Harmless,
+#     just pointless there; RED metrics/traces still work via the separate
+#     OTel opt-in path below on any platform.
+#
+# What you get, in order of how much it costs you:
+#   1. Discovery + up/down, for every container, for free: `app` reads the
+#      Docker Engine API directly (see "docker.sock" below) — the same
+#      stable, documented API tools like Portainer and cAdvisor use. No
+#      kernel dependency, no traffic required, works identically on every
+#      platform Docker runs on.
+#   2. Request-rate/error-rate metrics, opt-in per service: `app` tails
+#      that container's own logs (also via the Docker API) and parses
+#      standard access-log lines. Zero config if your service already logs
+#      in a common format; honestly reports "not recognized" if it doesn't.
+#   3. RED metrics + OTLP spans for EVERY container, zero-touch, wherever
+#      eBPF actually works on your host: beyla, running inside `app`,
+#      always-on, see above.
+#   4. Full distributed traces, opt-in per service, on ANY platform including
+#      Docker Desktop: podotype generates a small docker-compose override
+#      that adds an OpenTelemetry auto-instrumentation agent to ONE service
+#      you pick — a real (small) config change, on purpose only for the
+#      services you actually want deep, code-level spans for, not all of
+#      them by default. Beyla's spans (3) are shallower but need nothing.
+# All of this is configured live in the UI at http://localhost:8973 (see
+# "PORTS" below) — nothing above requires touching this file again.
+#
+# --- OTel agents: no manual download ----------------------------------------
+# Early testing had step 4 ask the person to `curl` the OpenTelemetry agent
+# jar themselves before applying the generated override — real feedback was
+# that this breaks the "just add podotype and go" pitch the moment someone
+# actually wants traces. The generated docker-compose.otel.yml now fetches
+# its own agent itself: it includes a tiny one-shot service that downloads
+# it into a volume scoped to that one override, and the target service
+# waits for that to finish (Compose's `depends_on: condition:
+# service_completed_successfully`) before it starts — see server.js
+# "OpenTelemetry opt-in" for the generator. Net effect: applying the
+# override is really just "save this file, run one docker compose command"
+# — the download happens as part of that command, not a separate step, and
+# nothing about it lives in podotype's own image (which is also why this
+# generalizes to other languages later without rebuilding podotype itself).
+#
+# --- docker.sock ------------------------------------------------------------
+# Mounted read-only. This is what lets `app` see every container on the
+# host without eBPF/kernel access — but it's still a real grant: anything
+# with access to the Docker socket can, in principle, see everything Docker
+# can see on this host. Read-only limits what podotype itself can do with
+# it (it never creates/starts/stops containers), but the socket itself
+# doesn't enforce read-only at the Docker Engine API level — that's podotype
+# code discipline, not a kernel guarantee. If that trade-off doesn't work
+# for your environment, see root README "docker.sock: the trade-off" for
+# the socket-proxy alternative (e.g. tecnativa/docker-socket-proxy), which
+# narrows this to just the read endpoints podotype actually calls.
+#
+# PORTS: podotype runs alongside your existing stack on the same host
+# (see README "You do not attach this to your existing docker-compose.yml"),
+# competing for host ports with whatever else is already running — 8080 in
+# particular collides constantly, so it's not the default here. All
+# published ports are env-var-overridable; copy .env.example to .env and
+# change them there instead of editing this file, so a `git pull` doesn't
+# clobber your local port choices.
+
+services:
+  # Combined engine + web + beyla — see the big comment block up top for
+  # the full reasoning. Build context is the REPO ROOT, not this
+  # directory, because the UI build stage needs apps/shared/frontend as a
+  # sibling (see apps/self-hosted/engine/Dockerfile's own comment).
+  app:
+    build:
+      context: .
+      dockerfile: apps/self-hosted/engine/Dockerfile
+    image: ghcr.io/oneeyed-king/podotype-app:latest
+    container_name: podotype-app
+    restart: unless-stopped
+    # cgroup: host — needed for the /hostproc mount below to actually
+    # work: Docker gives every container its own PRIVATE cgroup namespace
+    # by default (cgroup v2 hosts, Docker 20.10+), which means
+    # /proc/<pid>/cgroup shows paths RELATIVE to this container's own
+    # cgroup for anything that isn't a descendant of it. `cgroup: host`
+    # fixes that by making `app` see the true host cgroup tree.
+    #
+    # pid: host / privileged / ulimits.memlock — these are for beyla, now
+    # running inside this same container (see docker-entrypoint.sh). There
+    # is no way to grant these to only part of a container, so the whole
+    # thing runs with beyla's privilege level even though the Node side
+    # only strictly needs docker.sock/proc — same actual privilege
+    # footprint as the old 3-container split, just concentrated in one
+    # place instead of spread across two services.
+    cgroup: host
+    pid: host
+    privileged: true
+    ulimits:
+      memlock: -1
+    init: true
+    environment:
+      STALE_AFTER_SECONDS: "60"
+      SLOW_THRESHOLD_MS: "500"
+      CLICKHOUSE_URL: "http://clickhouse:8123"
+      CLICKHOUSE_DATABASE: "otel"
+      # No "web" proxy injecting this server-side anymore — the browser
+      # talks to this container directly now, so a non-empty default here
+      # would lock the UI itself out of its own API. Leave unset (default
+      # empty) for self-hosted; set it in .env only if this ever needs to
+      # be reachable beyond one trusted Docker network.
+      ENGINE_API_KEY: "${PODOTYPE_ENGINE_API_KEY:-}"
+      # beyla (the background process this container also runs — see
+      # docker-entrypoint.sh) reads these same env vars. Endpoint is
+      # localhost now, not a separate container's service name, since
+      # beyla and the Node server are in the same container.
+      BEYLA_CONFIG_PATH: "/etc/beyla/config.yml"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/json"
+      # BUG (confirmed live via a diagnostic build): Beyla was sending
+      # content-type: application/x-protobuf despite the generic
+      # OTEL_EXPORTER_OTLP_PROTOCOL above being set to http/json) — Beyla's
+      # own docs list this signal-specific override alongside the generic
+      # one; for traces specifically this build of Beyla appears to fall
+      # back to its port-based default (4318 → http/protobuf) rather than
+      # honoring the generic variable.
+      OTEL_EXPORTER_OTLP_TRACES_PROTOCOL: "http/json"
+      # Beyla also tries to export OTLP *metrics* by default — this app's
+      # OTLP ingest server only implements POST /v1/traces (see
+      # startOtlpIngestServer), so that path was just a permanent, useless
+      # "404 Not Found" WARN in beyla's own logs. RED metrics come from
+      # Beyla's Prometheus endpoint instead (see
+      # apps/shared/beyla/config.yml's prometheus_export block + this
+      # app's pollBeylaRedMetrics) — disabling OTLP metrics here stops the
+      # log spam without touching traces.
+      OTEL_METRICS_EXPORTER: "none"
+    volumes:
+      - podotype-app-state:/data
+      # Read-only — see "docker.sock" above. If this path doesn't exist on
+      # your host (uncommon, but possible with some rootless/Podman setups),
+      # discovery/health degrades to "no containers found" rather than
+      # crashing — check `docker compose logs app` for the exact error.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Also read-only, also a real (much smaller) grant like docker.sock
+      # above: the HOST's own /proc, mounted at a different path so it
+      # doesn't shadow this container's own /proc. This is what lets `app`
+      # match a Beyla-observed process back to its container by cgroup —
+      # see server.js "Beyla name resolution".
+      - /proc:/hostproc:ro
+      # Read-only, same narrow-grant pattern as the two mounts above —
+      # lets the /api/preflight check (server.js) confirm whether this
+      # host's kernel exposes BTF, which beyla's eBPF probes need to
+      # attach. Mounts /sys/kernel (NOT /sys/kernel/btf directly) on
+      # purpose — see server.js's BTF_PATH comment for why.
+      - /sys/kernel:/hostsys/kernel:ro
+      # debugfs/tracefs — several eBPF probe types still read through
+      # these, same mounts Coroot's own node-agent uses.
+      - /sys/kernel/debug:/sys/kernel/debug:ro
+      - /sys/kernel/tracing:/sys/kernel/tracing:ro
+    ports:
+      # Left side (host port) is what you actually hit collisions on;
+      # right side (container port) is fixed and internal, don't change it.
+      - "${PODOTYPE_UI_PORT:-8973}:8080"      # podotype UI + API
+      # Published (not just internal) on purpose: a service that opts into
+      # full tracing lives in a DIFFERENT docker-compose project, reaching
+      # this over the host network, not the internal `podotype` network.
+      - "${PODOTYPE_OTLP_PORT:-4318}:4318"    # OTLP/HTTP (JSON) — where beyla (inside this container) and opted-in services' traces land
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    networks: [podotype]
+
+  # SAAS-CLICKHOUSE BRANCH — trace storage. Apache 2.0 (see the project's
+  # own licensing notes on why this matters specifically for a hosted
+  # product, unlike Tempo's AGPLv3). `app` creates this database's table
+  # itself on startup (see server.js's ensureClickHouseSchema) — nothing
+  # here issues DDL by hand, and there's no separate collector image
+  # needed to do it either.
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    restart: unless-stopped
+    environment:
+      # Single-user, no-auth setup for local/self-hosted use, matching the
+      # "zero extra moving parts to configure" bar the rest of this project
+      # holds itself to — see root README before exposing this port beyond
+      # localhost/a trusted network for an actual hosted deployment, where
+      # this needs real credentials.
+      CLICKHOUSE_SKIP_USER_SETUP: "1"
+    volumes:
+      - podotype-clickhouse-data:/var/lib/clickhouse
+    ports:
+      # Point your own Grafana here (native ClickHouse datasource plugin) —
+      # replaces the OSS branch's PODOTYPE_TEMPO_PORT (3200) for the same
+      # "bring your own Grafana" use case.
+      - "${PODOTYPE_CLICKHOUSE_PORT:-8123}:8123"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks: [podotype]
+
+networks:
+  podotype: {}
+
+volumes:
+  podotype-app-state: {}
+  podotype-clickhouse-data: {}
