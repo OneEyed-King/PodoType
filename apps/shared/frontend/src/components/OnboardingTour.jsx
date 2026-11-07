@@ -44,7 +44,7 @@ function buildSteps(hosted) {
   const steps = [
     {
       selector: null,
-      title: 'Quick tour of Podotype',
+      title: 'Quick tour of PodoType',
       body: "A few short steps — where services show up, what the health summary means, how to tell if tracing itself is working, and where to drill into a slow request. Skip any time.",
     },
     {

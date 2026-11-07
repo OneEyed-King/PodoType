@@ -26,7 +26,7 @@ export default function TopBar({
           🦉
         </span>
         <div>
-          <div className="font-bold text-[15px] tracking-tight">podotype</div>
+          <div className="font-bold text-[15px] tracking-tight">PodoType</div>
           <div className="font-mono text-[12px] text-muted tracking-wider uppercase">
             {hosted ? (
               'hosted'

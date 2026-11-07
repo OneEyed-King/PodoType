@@ -39,7 +39,7 @@ function buildMarkdown({ services, rangeMinutes, rangeLabel, alerts }) {
 
   const cutoffMs = Date.now() - rangeMinutes * 60 * 1000;
   const lines = [];
-  lines.push('# Podotype overview report');
+  lines.push('# PodoType overview report');
   lines.push('');
   lines.push(`Generated: ${generatedAt.toLocaleString()}`);
   lines.push(`Range: last ${rangeLabel}`);

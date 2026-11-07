@@ -2,7 +2,7 @@ export default function DiscoveredTable({ services, onToggle }) {
   if (services.length === 0) {
     return (
       <p className="text-muted text-[14px] py-2.5">
-        No containers found — check that /var/run/docker.sock is mounted into podotype's app container (see
+        No containers found — check that /var/run/docker.sock is mounted into PodoType's app container (see
         docker-compose.yml).
       </p>
     );

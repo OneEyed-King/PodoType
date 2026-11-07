@@ -29,7 +29,7 @@ export default function TracingPanel({ svc, cfg, expanded, onToggleExpanded, sup
         <span className="inline-flex items-center gap-1.5">
           Tracing
           <InfoDot
-            title={`Real cross-service trace waterfalls, via an OpenTelemetry agent. Not zero-touch: needs one shared compose file applied alongside your main one (podotype generates and keeps it up to date — covers every traced service, not just this one). Supported languages: ${
+            title={`Real cross-service trace waterfalls, via an OpenTelemetry agent. Not zero-touch: needs one shared compose file applied alongside your main one (PodoType generates and keeps it up to date — covers every traced service, not just this one). Supported languages: ${
               supportedOtelLanguages.join(', ') || 'none yet'
             }.`}
           />

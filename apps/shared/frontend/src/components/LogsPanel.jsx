@@ -186,7 +186,7 @@ function HistoryLogs({ serviceName }) {
       <div className="flex flex-col gap-2">
         <div className="text-[13px] text-ink-dim">
           Off by default. This tab reads from Docker's live logs directly, same as Live/Clustered — nothing about
-          podotype stores log data anywhere. Turning this on for <span className="font-semibold text-ink">{serviceName}</span>{' '}
+          PodoType stores log data anywhere. Turning this on for <span className="font-semibold text-ink">{serviceName}</span>{' '}
           starts a SECOND, small copy — clustered patterns, not raw lines — kept independently in ClickHouse so
           history survives a restart and time-range search actually means something. This is genuinely{' '}
           <span className="font-semibold text-ink">additional disk usage on top of</span> whatever Docker's own logs

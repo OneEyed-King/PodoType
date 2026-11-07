@@ -1,4 +1,4 @@
-# Podotype (self-hosted)
+# PodoType (self-hosted)
 
 Zero-instrumentation observability for Docker — traces, RED metrics, logs,
 and container health, auto-captured via eBPF (Beyla), with no code changes
@@ -7,7 +7,7 @@ to your own services.
 ## Quick start
 
 ```bash
-curl -fsS https://raw.githubusercontent.com/<org>/<repo>/main/deploy/docker-compose.yaml \
+curl -fsS https://raw.githubusercontent.com/OneEyed-King/PodoType/main/deploy/docker-compose.yaml \
   | docker compose -f - up -d
 ```
 
@@ -21,6 +21,8 @@ except to your own Docker socket and ClickHouse.
 ## Local development
 
 ```bash
+git clone https://github.com/OneEyed-King/PodoType.git
+cd PodoType
 docker compose up -d --build
 ```
 
@@ -30,5 +32,6 @@ for, etc).
 
 ## License
 
-MIT — see `LICENSE`. (Confirm this is the license you want before
-publishing; swap it out first if not.)
+MIT — see `LICENSE`. (Still worth a final check before this gets wide
+attention — see the earlier note on why Apache 2.0/AGPL/Elastic License
+are also worth considering here.)

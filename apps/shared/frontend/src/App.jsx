@@ -484,7 +484,7 @@ export default function App() {
   // hostedDiscoveryRefresh as the one thing that has to differ.
   async function setupCheck(name, existing, refreshFn = refresh) {
     const type = window.prompt(
-      `Health check type for "${name}" — type "http" or "tcp"\n(http: checks a URL; tcp: just checks the port accepts a connection)\n\nOnly needed if this service has no Docker HEALTHCHECK of its own — otherwise podotype already reads that for free.`,
+      `Health check type for "${name}" — type "http" or "tcp"\n(http: checks a URL; tcp: just checks the port accepts a connection)\n\nOnly needed if this service has no Docker HEALTHCHECK of its own — otherwise PodoType already reads that for free.`,
       (existing && existing.type) || 'http'
     );
     if (type === null) return;
