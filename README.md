@@ -32,6 +32,7 @@ for, etc).
 
 ## License
 
-MIT — see `LICENSE`. (Still worth a final check before this gets wide
-attention — see the earlier note on why Apache 2.0/AGPL/Elastic License
-are also worth considering here.)
+[Elastic License 2.0](https://www.elastic.co/licensing/elastic-license) —
+see `LICENSE`. Free to use, self-host, modify, and redistribute, including
+commercially for your own use. The one thing it doesn't allow is offering
+PodoType itself to third parties as a hosted/managed service.

@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "podotype engine: the actual observability logic (Docker discovery/health, ClickHouse queries, alerts, retention, log clustering, OTLP ingestion). No UI of its own — see ../web for that.",
   "private": true,
+  "license": "Elastic-2.0",
   "type": "commonjs",
   "main": "server.js",
   "engines": {

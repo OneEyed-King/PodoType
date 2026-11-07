@@ -4,3 +4,4 @@ dist-hosted/
 _to_delete/
 *.timestamp-*.mjs
 .env
+.idea/
