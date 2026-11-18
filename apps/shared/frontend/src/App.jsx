@@ -1066,7 +1066,7 @@ export default function App() {
                   </div>
                 </div>
                 <div data-tour="preflight-area">
-                  <PreflightBanner />
+                  <PreflightBanner onGoToCodeTracing={() => setSection('tracing-setup')} />
                 </div>
                 <FleetGoldenSignals services={statusServices} />
                 <div data-tour="overview-summary">

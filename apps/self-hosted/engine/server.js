@@ -1065,6 +1065,15 @@ let containerIoPrev = new Map();
 // growing an array on every request.
 let containerStatsHistory = new Map();
 
+// name -> bounded array of { t, p50Ms, p95Ms, p99Ms }, oldest first —
+// sampled by evaluateAlerts on the same cadence as the other alert
+// evaluation, and what GET /api/services/:name/metrics-history's own
+// `latency` field reads from. Confirmed live: this was referenced in
+// three places (push, cleanup, and that API route) with no declaration
+// anywhere — a straight ReferenceError that crashed the process the
+// first time a real request exercised it.
+let latencyHistory = new Map();
+
 // containerName -> the image ID (sha256, from Docker inspect's `.Image`
 // field — NOT the image tag, which a `:latest`-style tag reuses across
 // deploys and so can't detect a change) last seen for that name. Used by
@@ -3311,11 +3320,25 @@ async function generateOtelOverride(entries) {
   // filename/yaml/instructions/includeSnippet are unaffected; it's there
   // for a UI that wants to show "N service(s) skipped" as its own banner
   // instead of making someone read the full instructions text to notice.
+  // Confirmed live: the full `instructions` prose above (and the same
+  // commands repeated as comments in `yaml`) is long enough that the two
+  // commands someone actually needs to run — apply, then clean up fetch
+  // containers — end up scrolled out of view, either past the fold of the
+  // instructions panel or past the fixed-height YAML textarea's own
+  // internal scrollbar. Pulling them out as their own short, dedicated,
+  // always-visible fields lets the UI put each one in its own one-line
+  // copy box ABOVE the long prose, instead of asking the operator to find
+  // them inside it.
+  const runCommand = `docker compose -f docker-compose.yml -f ${OTEL_OVERRIDE_FILENAME} up -d`;
+  const cleanupCommand = `docker ps -a --filter "name=-podotype-otel-fetch" --format "{{.Names}}" | xargs -r docker rm -f`;
+
   return {
     filename: OTEL_OVERRIDE_FILENAME,
     yaml,
     instructions,
     includeSnippet,
+    runCommand,
+    cleanupCommand,
     warnings: skippedLines.map((l) => l.replace(/^#\s*-\s*/, '')),
   };
 }
@@ -3520,6 +3543,11 @@ function mergeAlertConfig(saved) {
     channels: {
       telegram: { ...def.channels.telegram, ...((ac.channels && ac.channels.telegram) || {}) },
       webhook: { ...def.channels.webhook, ...((ac.channels && ac.channels.webhook) || {}) },
+      // Was missing entirely (dropped silently instead of defaulting) —
+      // confirmed live: a fresh install with no saved alertConfig crashed
+      // GET /api/alerts reading channels.email.enabled off this merge's
+      // result, since the key never made it into the returned object.
+      email: { ...def.channels.email, ...((ac.channels && ac.channels.email) || {}) },
     },
   };
 }
@@ -5079,6 +5107,10 @@ function checkBeylaReachable() {
   });
 }
 
+// Grace period after server start before "beyla's up but has resolved
+// nothing" is treated as meaningful rather than "just hasn't scraped yet."
+const PREFLIGHT_CAPTURE_GRACE_MS = 90000;
+
 async function runPreflightCheck() {
   let btfAvailable = false;
   try {
@@ -5101,6 +5133,35 @@ async function runPreflightCheck() {
   } else if (!beylaReachable) {
     status = 'error';
     message = "Can't reach beyla's metrics endpoint — it may have failed to start or crashed. Check `docker compose logs beyla`.";
+  } else {
+    // Both checks above pass, but that only proves beyla's PROCESS is up —
+    // not that its eBPF probes are actually seeing any of your containers'
+    // real traffic. Confirmed live: on Docker Desktop / WSL2 and some other
+    // virtualized hosts, BTF is present and the metrics port answers, yet
+    // beyla never resolves a single watched container because it can't
+    // attach into the host's real process/network namespaces the way it
+    // can on a real Linux VPS or bare-metal box — so every chart on the
+    // overview page stays empty with nothing telling the operator why.
+    // beylaNameMapFromMetrics (rebuilt every pollBeylaRedMetrics() cycle)
+    // is the ground truth for "has beyla resolved ANY container at all" —
+    // far more reliable here than reachability, since a dead-in-the-water
+    // beyla still answers /metrics with zero useful content.
+    let state;
+    try {
+      state = loadState();
+    } catch (_) {
+      state = { services: {} };
+    }
+    const nonOtelWatched = Object.entries(state.services || {}).filter(
+      ([, entry]) => entry && entry.watched && !(entry.otel && entry.otel.enabled)
+    );
+    const pastGrace = Date.now() - new Date(serverStartedAt).getTime() > PREFLIGHT_CAPTURE_GRACE_MS;
+    const beylaResolvedAnything = beylaNameMapFromMetrics.containerIdToName.size > 0;
+    if (pastGrace && nonOtelWatched.length > 0 && !beylaResolvedAnything) {
+      status = 'warning';
+      message =
+        "beyla is reachable and this host's kernel exposes BTF, but after waiting it still hasn't resolved any traffic for your watched services — charts stay empty even though the checks above pass. This is common on Docker Desktop, WSL2, and other virtualized or sandboxed hosts, where eBPF can't see into a container's real processes the way it can on a genuine Linux VPS or bare-metal host. If you're not running on one of those, eBPF-based tracing likely won't work here at all — turn on Code Tracing (OpenTelemetry) for your services instead from each service's tracing panel.";
+    }
   }
 
   preflightCache = { checkedAt: new Date().toISOString(), btfAvailable, beylaReachable, status, message };

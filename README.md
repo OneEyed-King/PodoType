@@ -37,11 +37,19 @@ as real traffic hits them. If nothing shows up after a minute of real
 traffic, check the Troubleshooting section below before assuming
 something's broken.
 
-To stop and remove it:
+To stop and remove it, re-run the same curl, piped into `down` instead of
+`up -d` (you likely didn't save `docker-compose.yaml` anywhere, so `-f -`
+again — reading the file from stdin — is what lets this work without it;
+`docker compose down` alone, with no file, does nothing here since
+Compose wouldn't know which project you mean):
 
 ```bash
-docker compose -f deploy/docker-compose.yaml down
+curl -fsS https://raw.githubusercontent.com/OneEyed-King/PodoType/main/deploy/docker-compose.yaml \
+  | docker compose -f - down
 ```
+
+(If you DID save the file locally, `docker compose -f docker-compose.yaml down`
+from that directory works too.)
 
 Your data (ClickHouse volume + dashboard state) persists across restarts
 in named Docker volumes; add `-v` to the command above to wipe it too.
@@ -58,14 +66,52 @@ the file itself for what each one does.
 ```bash
 git clone https://github.com/OneEyed-King/PodoType.git
 cd PodoType
-docker compose up -d --build
+docker compose build
+docker compose up -d
 ```
+
+(`docker compose up -d --build` also works and does both in one step —
+split out above so each command is easy to re-run on its own, e.g.
+re-running just `docker compose build` after a code change, then `docker
+compose up -d` to apply it.)
 
 This builds from source instead of pulling the published image — use
 this if you're changing PodoType's own code, not for a normal install.
 See `docker-compose.yml`'s own comments for the full architecture
 reasoning (why `pid: host`/`privileged` is needed, what each mount is
 for, etc).
+
+To stop and remove the containers this way (keeps your named volumes —
+add `-v` to also wipe them):
+
+```bash
+docker compose down
+```
+
+## Upgrading from an older PodoType install
+
+PodoType used to ship as 4 separate containers (`engine`, `web`, `beyla`,
+`clickhouse`); it's 2 now (`app`, `clickhouse` — see `docker-compose.yml`'s
+own comment for why). If you have an old install around, or you're
+re-running `up` after pulling a new image and get a `Conflict. The
+container name "/podotype-app" is already in use` error, that's a leftover
+container from a previous run or an incompatible older container reusing
+the same name — Compose can't just replace it, since it belongs to a
+different project (or came from a manual `docker run`, not `docker
+compose`). Fix it before retrying:
+
+```bash
+docker rm -f podotype-app
+docker compose up -d --remove-orphans
+```
+
+`--remove-orphans` here is safe: it only ever removes containers that
+belong to THIS compose project (`podotype`/whatever directory you're in)
+but are no longer in its compose file — exactly the old `web`/`beyla`
+containers from the 4-container architecture. (This is different from the
+`--remove-orphans` warning under Code Tracing's own setup instructions,
+which is about a *separate*, unrelated compose project — removing orphans
+there could delete your own stack's containers too.)
 
 ## Troubleshooting
 

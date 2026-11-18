@@ -32,6 +32,37 @@ function CopyableBlock({ text, label, rows }) {
   );
 }
 
+// A single-line command with its own copy button — same copy/feedback
+// behavior as CopyableBlock below, but sized for one command instead of a
+// whole file, so it can sit above the fold without a scrollbar.
+function CopyableCommand({ text, label }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      window.alert('Could not copy automatically — select the text below and copy it manually.');
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="text-[11px] font-bold uppercase tracking-wide text-ink-dim">{label}</div>
+      <div className="flex items-stretch gap-1.5">
+        <code className="flex-1 min-w-0 overflow-x-auto whitespace-pre bg-bg text-ink border border-border rounded-md px-2 py-1.5 font-mono text-[12px]">
+          {text}
+        </code>
+        <button type="button" onClick={copy} className="link-btn shrink-0 px-2">
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // downloadUrl/closeTitle default to the OTel file's own values so the
 // existing call site keeps working unchanged — kept generic in case another
 // generated-file panel needs this component later.
@@ -53,13 +84,31 @@ export default function OtelInstructions({ compose, onClose, downloadUrl, closeT
           </button>
         )}
       </div>
-      <pre className="whitespace-pre-wrap font-mono text-[13px] text-muted m-0">{compose.instructions}</pre>
 
       <a href={downloadUrl || api.otelComposeDownloadUrl()} className="link-btn text-accent font-bold self-start">
         ⬇ Download {compose.filename}
       </a>
 
       <CopyableBlock text={compose.yaml} label={compose.filename} />
+
+      {/* Confirmed live: these two commands are also in the long prose
+          below (and again as comments in the YAML above), but both of
+          those are long enough to scroll the commands out of view. Putting
+          them here, right after the file you just downloaded/copied,
+          means the next two things to actually DO are visible without
+          scrolling — in the order you'd do them: get the file, then run
+          it, then clean up later once the traced set changes. The prose
+          below is for the "why"/full detail, not the first thing someone
+          needs to find. */}
+      {compose.runCommand && <CopyableCommand text={compose.runCommand} label="1. Apply it" />}
+      {compose.cleanupCommand && (
+        <CopyableCommand
+          text={compose.cleanupCommand}
+          label="2. Clean up leftover fetch containers (after the traced set changes — safe, only matches podotype's own; do NOT use --remove-orphans here, see below)"
+        />
+      )}
+
+      <pre className="whitespace-pre-wrap font-mono text-[13px] text-muted m-0">{compose.instructions}</pre>
 
       {compose.includeSnippet && (
         <div className="pt-2 border-t border-border-soft flex flex-col gap-1.5">
