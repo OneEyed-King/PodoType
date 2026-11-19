@@ -43,6 +43,22 @@ function PanelIcon() {
   );
 }
 
+// Brand mark — same ring-with-filled-dot glyph as the marketing site's
+// header wordmark (podotype-website's Header.jsx), so the logo reads as
+// the same product in both places. Deliberately hardcoded to the site's
+// rust accent rather than the dashboard's --color-accent (cobalt) — this
+// is the one spot the two palettes intentionally meet; nothing else in
+// the dashboard's "Cobalt & Cream" theme changes.
+const LOGO_RUST = 'oklch(0.66 0.15 42)';
+function Logo({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+      <circle cx="16" cy="16" r="14" fill="none" stroke={LOGO_RUST} strokeWidth="2.5" />
+      <circle cx="16" cy="16" r="6.5" fill={LOGO_RUST} />
+    </svg>
+  );
+}
+
 // userEmail/onLogout are only ever passed from the hosted branch of
 // App.jsx (self-hosted has no login of its own — see App.jsx's authChecked
 // comment) — the ribbon below simply doesn't render without them, same
@@ -70,6 +86,11 @@ export default function Sidebar({ active, onSelect, serviceCount, mode, userEmai
         collapsed ? 'w-14' : 'w-52'
       }`}
     >
+      <div className={`flex items-center gap-2 px-3 mb-3 ${collapsed ? 'justify-center px-2' : ''}`}>
+        <Logo />
+        {!collapsed && <span className="font-bold text-[14px] text-ink tracking-tight">PodoType</span>}
+      </div>
+
       <div className={`flex items-center px-2 mb-2 ${collapsed ? 'justify-center' : ''}`}>
         <button
           type="button"
