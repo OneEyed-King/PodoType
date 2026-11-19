@@ -45,16 +45,15 @@ function PanelIcon() {
 
 // Brand mark — same ring-with-filled-dot glyph as the marketing site's
 // header wordmark (podotype-website's Header.jsx), so the logo reads as
-// the same product in both places. Deliberately hardcoded to the site's
-// rust accent rather than the dashboard's --color-accent (cobalt) — this
-// is the one spot the two palettes intentionally meet; nothing else in
-// the dashboard's "Cobalt & Cream" theme changes.
-const LOGO_RUST = 'oklch(0.66 0.15 42)';
+// the same product in both places. Driven by --color-logo (index.css),
+// which is set to a precise per-theme match of the site's rust accent —
+// this is the one spot the two palettes intentionally meet; nothing else
+// in the dashboard's "Cobalt & Cream" theme changes.
 function Logo({ size = 18 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-      <circle cx="16" cy="16" r="14" fill="none" stroke={LOGO_RUST} strokeWidth="2.5" />
-      <circle cx="16" cy="16" r="6.5" fill={LOGO_RUST} />
+      <circle cx="16" cy="16" r="14" fill="none" stroke="rgb(var(--color-logo))" strokeWidth="2.5" />
+      <circle cx="16" cy="16" r="6.5" fill="rgb(var(--color-logo))" />
     </svg>
   );
 }

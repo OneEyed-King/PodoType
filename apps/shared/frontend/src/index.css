@@ -33,6 +33,11 @@
   --color-ink-dim: 71 78 97;
   --color-muted: 110 117 133;
   --color-accent: 37 70 199;
+  /* Not part of the Cobalt & Cream palette — this one color exists only
+   * so the sidebar's brand mark (Sidebar.jsx's Logo) can match
+   * podotype-website's rust accent exactly, in each theme. Nothing else
+   * reads this variable. */
+  --color-logo: 193 85 44;
   --color-up: 15 138 94;
   --color-down: 196 44 45;
   --color-slow: 180 98 12;
@@ -62,6 +67,7 @@
   --color-ink-dim: 160 168 190;
   --color-muted: 118 126 150;
   --color-accent: 46 84 220;
+  --color-logo: 230 126 85;
   --color-up: 56 189 133;
   --color-down: 229 96 91;
   --color-slow: 224 134 56;
@@ -88,6 +94,7 @@
     --color-ink-dim: 160 168 190;
     --color-muted: 118 126 150;
     --color-accent: 46 84 220;
+    --color-logo: 230 126 85;
     --color-up: 56 189 133;
     --color-down: 229 96 91;
     --color-slow: 224 134 56;
