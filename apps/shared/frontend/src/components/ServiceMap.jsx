@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api.js';
 import InfoDot from './InfoDot.jsx';
 
@@ -147,6 +148,7 @@ function truncate(name, max = 20) {
 // a plain layered SVG layout is plenty, and it's one fewer dependency that
 // can go stale.
 export default function ServiceMap() {
+  const { t } = useTranslation();
   const [map, setMap] = useState(null);
   const [error, setError] = useState(null);
 
@@ -179,16 +181,15 @@ export default function ServiceMap() {
   }, []);
 
   if (error) {
-    return <div className="text-[14px] text-down">Couldn't load the service map: {error}</div>;
+    return <div className="text-[14px] text-down">{t('serviceMap.couldntLoad', { error })}</div>;
   }
   if (!map) {
-    return <div className="text-[14px] text-muted">Loading service map…</div>;
+    return <div className="text-[14px] text-muted">{t('serviceMap.loading')}</div>;
   }
   if (map.nodes.length === 0) {
     return (
       <div className="text-[14px] text-muted">
-        No traced traffic in the last {Math.round(map.lookbackSeconds / 60)} minutes yet — the map fills in once Beyla or an
-        OTel agent has captured some real requests.
+        {t('serviceMap.noTraffic', { minutes: Math.round(map.lookbackSeconds / 60) })}
       </div>
     );
   }
@@ -209,18 +210,18 @@ export default function ServiceMap() {
     <div>
       <div className="flex items-center gap-1.5 mb-2">
         <span className="font-mono text-[11px] text-muted uppercase tracking-wide">
-          Who calls whom — last {Math.round(map.lookbackSeconds / 60)}m of real traffic
+          {t('serviceMap.whoCallsWhom', { minutes: Math.round(map.lookbackSeconds / 60) })}
         </span>
-        <InfoDot title="On self-hosted, an arrow is backed by Beyla's real observed TCP connections (network-flow eBPF capture) whenever one's available this window — that's what a solid line means; trace correlation alone (matching a caller's outbound span to a callee's inbound span by trace ID) fills in call counts and p95 latency, and supplies the edge on its own — shown dashed — when no confirming connection was seen this round. Hosted now confirms edges the same way — real TCP connections its agent observes, forwarded up and matched here. Node names are Beyla's (or an OTel agent's) own service names, which don't always match PodoType's watched-container names — see the dashboard's own 'Beyla name resolution' for why. A service with no callers/callees shown either hasn't made or received a traced request in this window, or only ever gets health-check traffic." />
+        <InfoDot title={t('serviceMap.tooltip')} />
         {map.edges.some((e) => e.source === 'trace-only') && (
           <span className="flex items-center gap-2 ml-2 font-mono text-[10px] text-muted">
             <span className="flex items-center gap-1">
               <svg width="14" height="2"><line x1="0" y1="1" x2="14" y2="1" className="stroke-muted" strokeWidth="1.5" /></svg>
-              confirmed
+              {t('serviceMap.confirmed')}
             </span>
             <span className="flex items-center gap-1">
               <svg width="14" height="2"><line x1="0" y1="1" x2="14" y2="1" className="stroke-muted" strokeWidth="1.5" strokeDasharray="3 3" opacity={0.6} /></svg>
-              trace-only
+              {t('serviceMap.traceOnly')}
             </span>
           </span>
         )}
@@ -281,6 +282,13 @@ export default function ServiceMap() {
                 : `${e.callCount}`
               : fmtBytesShort(e.bytesTotal);
             const labelWidth = 11 + edgeLabel.length * 5.2;
+            const titleText =
+              `${e.from} → ${e.to}` +
+              (hasCallCount
+                ? t('serviceMap.titleCalls', { count: e.callCount })
+                : t('serviceMap.titleBytesObserved', { bytes: fmtBytesShort(e.bytesTotal) })) +
+              (e.p95Ms !== null ? t('serviceMap.titleP95', { ms: Math.round(e.p95Ms) }) : '') +
+              (unconfirmed ? t('serviceMap.titleUnconfirmed') : e.source ? t('serviceMap.titleConfirmed') : '');
             return (
               <g key={`${e.from}->${e.to}-${i}`}>
                 <path
@@ -292,16 +300,7 @@ export default function ServiceMap() {
                   strokeDasharray={unconfirmed ? '3 3' : undefined}
                   markerEnd="url(#svc-map-arrow)"
                 >
-                  <title>
-                    {e.from} → {e.to}
-                    {hasCallCount ? `: ${e.callCount} call${e.callCount === 1 ? '' : 's'}` : `: ${fmtBytesShort(e.bytesTotal)} observed`}
-                    {e.p95Ms !== null ? `, p95 ${Math.round(e.p95Ms)}ms` : ''}
-                    {unconfirmed
-                      ? ' — from trace data only, no live TCP connection observed this window'
-                      : e.source
-                      ? ' — confirmed by a real TCP connection'
-                      : ''}
-                  </title>
+                  <title>{titleText}</title>
                 </path>
                 <rect
                   x={midX - labelWidth / 2}
@@ -329,6 +328,11 @@ export default function ServiceMap() {
             if (!pos) return null;
             const n = nodesByName.get(node.name);
             const borderColor = n.slow ? 'stroke-slow' : n.requestCount > 0 ? 'stroke-accent' : 'stroke-border';
+            const nodeTitle =
+              node.name +
+              (node.requestCount > 0
+                ? t('serviceMap.nodeTitleActive', { count: node.requestCount, ms: Math.round(node.p95Ms) })
+                : t('serviceMap.nodeTitleNone'));
             return (
               <g key={node.name} transform={`translate(${pos.x}, ${pos.y})`}>
                 <rect
@@ -338,16 +342,15 @@ export default function ServiceMap() {
                   className={`fill-panel-raised ${borderColor}`}
                   strokeWidth="1.5"
                 >
-                  <title>
-                    {node.name}
-                    {node.requestCount > 0 ? ` — ${node.requestCount} inbound req, p95 ${Math.round(node.p95Ms)}ms` : ' — no inbound traffic seen'}
-                  </title>
+                  <title>{nodeTitle}</title>
                 </rect>
                 <text x={NODE_WIDTH / 2} y={17} textAnchor="middle" className="fill-ink font-mono text-[11px] font-semibold">
                   {truncate(node.name)}
                 </text>
                 <text x={NODE_WIDTH / 2} y={32} textAnchor="middle" className="fill-muted font-mono text-[9px]">
-                  {node.requestCount > 0 ? `${node.requestCount} req · p95 ${Math.round(node.p95Ms)}ms` : 'no inbound traffic'}
+                  {node.requestCount > 0
+                    ? t('serviceMap.nodeSubActive', { count: node.requestCount, ms: Math.round(node.p95Ms) })
+                    : t('serviceMap.nodeSubNone')}
                 </text>
               </g>
             );

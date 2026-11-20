@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import ChartPanel from './charts/ChartPanel.jsx';
 import InfoDot from './InfoDot.jsx';
 import { api } from '../api.js';
@@ -42,6 +43,7 @@ function fmtUptime(seconds) {
 }
 
 export default function HostStatsPanel({ rangeMinutes }) {
+  const { t } = useTranslation();
   // Open by default (still just a toggle, not forced) — host stats are
   // useful at a glance without an extra click, and the panel's own poll
   // below is already gated on `open` so this doesn't add any idle load
@@ -113,48 +115,42 @@ export default function HostStatsPanel({ rangeMinutes }) {
             : 'text-ink bg-panel-raised border-border hover:border-accent hover:text-accent'
         }`}
       >
-        🖥 Host stats {open ? '▲' : '▼'}
+        {t('hostStats.toggle')} {open ? '▲' : '▼'}
       </button>
 
       {open && (
         <div className="mt-2 border border-border rounded-lg px-4 py-3">
           <div className="flex items-center justify-between gap-2 mb-2.5">
             <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-dim uppercase tracking-wide">
-              Host machine
-              <InfoDot title="CPU, memory, load average and uptime for the whole machine this runs on — not any one container. Read directly from the host's /proc, no extra containers or agents involved." />
+              {t('hostStats.hostMachine')}
+              <InfoDot title={t('hostStats.tooltip')} />
             </span>
             <button type="button" className="link-btn text-[12px]" onClick={load} disabled={loading}>
-              {loading ? 'loading…' : '↻ refresh'}
+              {loading ? t('metricsHistory.loading') : t('metricsHistory.refresh')}
             </button>
           </div>
 
           {error && <div className="text-[13px] text-down">{error}</div>}
 
           {!error && data && data.available && noHistoryStored && (
-            <div className="text-[12px] text-muted mb-2">
-              Point-in-time only — hosted doesn't store host-level history yet, so this always shows the current
-              reading regardless of the selected time range.
-            </div>
+            <div className="text-[12px] text-muted mb-2">{t('hostStats.pointInTimeOnly')}</div>
           )}
 
           {!error && data && data.available && !noHistoryStored && rangeExceedsRetention && (
             <div className="text-[12px] text-muted mb-2">
-              Only the last ~{Math.round(retentionMinutes)}m of host history is kept — showing all of it, not the
-              full selected range.
+              {t('hostStats.retentionNote', { minutes: Math.round(retentionMinutes) })}
             </div>
           )}
 
           {!error && data && !data.available && (
-            <div className="text-[13px] text-muted">
-              Host metrics aren't available yet — still gathering the first sample.
-            </div>
+            <div className="text-[13px] text-muted">{t('hostStats.notAvailable')}</div>
           )}
 
           {!error && current && (
             <>
             <div className="flex flex-wrap gap-4 mb-4">
               <div className="flex-1 min-w-[160px] border border-border-soft rounded-lg px-3.5 py-2.5 bg-panel-raised/40">
-                <div className="font-mono text-[11px] text-muted uppercase tracking-wide mb-1">Load average</div>
+                <div className="font-mono text-[11px] text-muted uppercase tracking-wide mb-1">{t('hostStats.loadAverage')}</div>
                 <div className="text-[16px] font-semibold text-ink">
                   {fmtLoad(current.cpu?.load1)} · {fmtLoad(current.cpu?.load5)} · {fmtLoad(current.cpu?.load15)}
                 </div>
@@ -162,21 +158,21 @@ export default function HostStatsPanel({ rangeMinutes }) {
               </div>
 
               <div className="flex-1 min-w-[160px] border border-border-soft rounded-lg px-3.5 py-2.5 bg-panel-raised/40">
-                <div className="font-mono text-[11px] text-muted uppercase tracking-wide mb-1">Uptime</div>
+                <div className="font-mono text-[11px] text-muted uppercase tracking-wide mb-1">{t('hostStats.uptime')}</div>
                 <div className="text-[16px] font-semibold text-ink">{fmtUptime(current.uptimeSeconds)}</div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <ChartPanel
-                label="CPU"
+                label={t('alertsSettings.cpu')}
                 points={cpuHistory}
                 color="rgb(var(--color-accent))"
                 currentText={
                   <>
                     {fmtPercent(current.cpu?.percent)}
                     {current.cpu?.cores ? (
-                      <span className="text-muted font-normal text-[14px]"> · {current.cpu.cores} cores</span>
+                      <span className="text-muted font-normal text-[14px]"> · {t('hostStats.cores', { count: current.cpu.cores })}</span>
                     ) : null}
                   </>
                 }
@@ -185,7 +181,7 @@ export default function HostStatsPanel({ rangeMinutes }) {
                 height={180}
               />
               <ChartPanel
-                label="Memory"
+                label={t('hostStats.memory')}
                 points={memHistory}
                 color="rgb(var(--color-ink-dim))"
                 currentText={

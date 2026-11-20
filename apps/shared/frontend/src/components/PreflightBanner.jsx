@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api.js';
 
 // Reddit feedback (investigatormaker): when eBPF tracing silently
@@ -20,17 +21,8 @@ import { api } from '../api.js';
 // which is why only 'warning' gets the one-click link there.
 const POLL_MS = 15000;
 
-const VARIANTS = {
-  error: { label: "Tracing isn't working", border: 'border-down/40', bg: 'bg-down/5', text: 'text-down' },
-  warning: {
-    label: 'No traffic captured yet',
-    border: 'border-slow/40',
-    bg: 'bg-slow/5',
-    text: 'text-slow',
-  },
-};
-
 export default function PreflightBanner({ onGoToCodeTracing }) {
+  const { t } = useTranslation();
   const [preflight, setPreflight] = useState(null);
 
   useEffect(() => {
@@ -52,7 +44,17 @@ export default function PreflightBanner({ onGoToCodeTracing }) {
     };
   }, []);
 
-  const variant = preflight && VARIANTS[preflight.status];
+  const variants = {
+    error: { label: t('preflightBanner.tracingNotWorking'), border: 'border-down/40', bg: 'bg-down/5', text: 'text-down' },
+    warning: {
+      label: t('preflightBanner.noTrafficYet'),
+      border: 'border-slow/40',
+      bg: 'bg-slow/5',
+      text: 'text-slow',
+    },
+  };
+
+  const variant = preflight && variants[preflight.status];
   if (!variant) return null; // 'ok', or not loaded yet — nothing to interrupt the page for
 
   return (
@@ -65,7 +67,7 @@ export default function PreflightBanner({ onGoToCodeTracing }) {
           onClick={onGoToCodeTracing}
           className={`mt-2 text-[12px] font-semibold ${variant.text} underline hover:no-underline`}
         >
-          Go to Code Tracing →
+          {t('preflightBanner.goToCodeTracing')}
         </button>
       )}
     </div>

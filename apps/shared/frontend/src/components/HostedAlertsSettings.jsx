@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { hostedApi } from '../datasource/hostedApi.js';
 import InfoDot from './InfoDot.jsx';
 
@@ -13,6 +14,7 @@ import InfoDot from './InfoDot.jsx';
 // channels as a real list instead — see hostedApi.js's own comment on
 // why alertsConfig()/alertChannels() are two separate calls here.
 export default function HostedAlertsSettings({ onClose, onSaved }) {
+  const { t } = useTranslation();
   const [config, setConfig] = useState(null);
   const [channels, setChannels] = useState(null);
   const [loadError, setLoadError] = useState(null);
@@ -37,8 +39,8 @@ export default function HostedAlertsSettings({ onClose, onSaved }) {
       .catch((err) => setLoadError(err.message));
   }, []);
 
-  if (loadError) return <div className="mb-5 text-[13px] text-down">Couldn't load alert settings: {loadError}</div>;
-  if (!config || !channels) return <div className="mb-5 text-[13px] text-muted">Loading alert settings…</div>;
+  if (loadError) return <div className="mb-5 text-[13px] text-down">{t('alertsSettings.loadError', { error: loadError })}</div>;
+  if (!config || !channels) return <div className="mb-5 text-[13px] text-muted">{t('alertsSettings.loading')}</div>;
 
   function updateEnabled(key, value) {
     setConfig((c) => ({ ...c, enabled: { ...c.enabled, [key]: value } }));
@@ -109,8 +111,8 @@ export default function HostedAlertsSettings({ onClose, onSaved }) {
   return (
     <div className="mb-5 border border-border rounded-lg overflow-hidden">
       <div className="px-3.5 py-2 border-b border-border-soft flex items-center justify-between">
-        <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim">Configure alerts</span>
-        <button type="button" className="link-btn text-muted hover:text-ink text-[15px] leading-none" onClick={onClose} title="Close without saving">
+        <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim">{t('alertsSettings.configureTitle')}</span>
+        <button type="button" className="link-btn text-muted hover:text-ink text-[15px] leading-none" onClick={onClose} title={t('alertsSettings.closeWithoutSaving')}>
           ×
         </button>
       </div>
@@ -118,23 +120,23 @@ export default function HostedAlertsSettings({ onClose, onSaved }) {
       <div className="px-3.5 py-3 flex flex-col gap-4">
         <div>
           <div className="text-[12px] font-bold uppercase tracking-wider text-muted mb-1 inline-flex items-center gap-1.5">
-            Triggers
-            <InfoDot title="Evaluated centrally, not by the agent — a crashed customer VM shouldn't take its own alerting down with it. Checked every ~30s." />
+            {t('alertsSettings.triggers')}
+            <InfoDot title={t('hostedAlertsSettings.triggersTooltip')} />
           </div>
           <label className="flex items-center gap-2 text-[13px] cursor-pointer select-none py-1">
             <input type="checkbox" checked={config.enabled.serviceDown} onChange={(e) => updateEnabled('serviceDown', e.target.checked)} className="accent-accent" />
-            <span className="text-ink-dim">Service down</span>
-            <span className="text-muted text-[12px]">— a watched container reports not running/unhealthy</span>
+            <span className="text-ink-dim">{t('hostedAlertsSettings.serviceDown')}</span>
+            <span className="text-muted text-[12px]">— {t('hostedAlertsSettings.serviceDownHint')}</span>
           </label>
           <label className="flex items-center gap-2 text-[13px] cursor-pointer select-none py-1">
             <input type="checkbox" checked={config.enabled.errorRate} onChange={(e) => updateEnabled('errorRate', e.target.checked)} className="accent-accent" />
-            <span className="text-ink-dim">Error rate</span>
-            <span className="text-muted text-[12px]">— a watched service's traced error rate crosses the threshold below</span>
+            <span className="text-ink-dim">{t('hostedAlertsSettings.errorRate')}</span>
+            <span className="text-muted text-[12px]">— {t('hostedAlertsSettings.errorRateHint')}</span>
           </label>
         </div>
 
         <div className="flex items-center gap-2 text-[13px] flex-wrap">
-          <span className="text-ink-dim">Error rate threshold</span>
+          <span className="text-ink-dim">{t('alertsSettings.errorRateThreshold')}</span>
           <input
             type="number"
             min="0"
@@ -148,7 +150,7 @@ export default function HostedAlertsSettings({ onClose, onSaved }) {
 
         <div>
           <label className="flex items-center gap-2 text-[13px]">
-            <span className="text-ink-dim">Sustained for</span>
+            <span className="text-ink-dim">{t('alertsSettings.sustainedFor')}</span>
             <input
               type="number"
               min="1"
@@ -157,14 +159,14 @@ export default function HostedAlertsSettings({ onClose, onSaved }) {
               onChange={(e) => setConfig((c) => ({ ...c, sustainChecks: e.target.value === '' ? '' : Number(e.target.value) }))}
               className="w-14 bg-panel border border-border-soft rounded px-1.5 py-0.5 font-mono text-[13px] text-ink"
             />
-            <span className="text-muted">consecutive checks</span>
+            <span className="text-muted">{t('alertsSettings.consecutiveChecks')}</span>
           </label>
         </div>
 
         <div>
-          <div className="text-[12px] font-bold uppercase tracking-wider text-muted mb-1.5">Delivery channels</div>
+          <div className="text-[12px] font-bold uppercase tracking-wider text-muted mb-1.5">{t('hostedAlertsSettings.deliveryChannels')}</div>
           <div className="flex flex-col gap-2">
-            {channels.length === 0 && <div className="text-[13px] text-muted">No channels yet — add one below.</div>}
+            {channels.length === 0 && <div className="text-[13px] text-muted">{t('hostedAlertsSettings.noChannelsYet')}</div>}
             {channels.map((c) => (
               <div key={c.id} className="border border-border-soft rounded-md p-2.5">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -179,10 +181,10 @@ export default function HostedAlertsSettings({ onClose, onSaved }) {
                       disabled={Boolean(testing[c.id])}
                       className="text-[13px] font-semibold text-ink bg-panel-raised border border-border hover:border-accent hover:text-accent rounded-md px-3.5 py-1.5 disabled:opacity-50"
                     >
-                      {testing[c.id] ? 'Sending…' : 'Send test'}
+                      {testing[c.id] ? t('alertsSettings.sendingTest') : t('hostedAlertsSettings.sendTest')}
                     </button>
                     <button type="button" onClick={() => removeChannel(c.id)} className="link-btn text-[12px] text-muted hover:text-down">
-                      Remove
+                      {t('hostedAlertsSettings.remove')}
                     </button>
                   </div>
                 </div>
@@ -191,19 +193,23 @@ export default function HostedAlertsSettings({ onClose, onSaved }) {
                     ? c.config.webhookUrl
                     : c.type === 'email'
                     ? c.config.to
-                    : `${c.config.botToken} · chat ${c.config.chatId}`}
-                  {c.last_error && <span className="text-down"> — last error: {c.last_error}</span>}
+                    : t('hostedAlertsSettings.botTokenChat', { token: c.config.botToken, chatId: c.config.chatId })}
+                  {c.last_error && <span className="text-down">{t('hostedAlertsSettings.lastErrorSuffix', { error: c.last_error })}</span>}
                 </div>
                 {testResults[c.id] && (
                   <div className={`text-[12px] mt-1 ml-6 ${testResults[c.id].ok ? 'text-up' : 'text-down'}`}>
-                    {testResults[c.id].ok ? '✓ delivered' : `✗ ${testResults[c.id].error || 'failed'}`}
+                    {testResults[c.id].ok
+                      ? t('alertsSettings.delivered')
+                      : testResults[c.id].error
+                      ? t('alertsSettings.failed', { error: testResults[c.id].error })
+                      : t('alertsSettings.failedGeneric')}
                   </div>
                 )}
               </div>
             ))}
 
             <div className="border border-dashed border-border-soft rounded-md p-2.5">
-              <div className="text-[13px] font-semibold text-ink-dim mb-1.5">Add a channel</div>
+              <div className="text-[13px] font-semibold text-ink-dim mb-1.5">{t('hostedAlertsSettings.addChannelHeading')}</div>
               <div className="flex items-center gap-2 flex-wrap mb-1.5">
                 <select
                   value={newChannel.type}
@@ -212,11 +218,11 @@ export default function HostedAlertsSettings({ onClose, onSaved }) {
                 >
                   <option value="discord">Discord</option>
                   <option value="telegram">Telegram</option>
-                  <option value="email">Email</option>
+                  <option value="email">{t('hostedAlertsSettings.emailOption')}</option>
                 </select>
                 <input
                   type="text"
-                  placeholder="Label (optional)"
+                  placeholder={t('hostedAlertsSettings.labelOptional')}
                   value={newChannel.label}
                   onChange={(e) => setNewChannel((c) => ({ ...c, label: e.target.value }))}
                   className="bg-panel border border-border-soft rounded px-2 py-1 font-mono text-[13px] text-ink w-40"
@@ -225,7 +231,7 @@ export default function HostedAlertsSettings({ onClose, onSaved }) {
               {newChannel.type === 'discord' ? (
                 <input
                   type="text"
-                  placeholder="https://discord.com/api/webhooks/..."
+                  placeholder={t('hostedAlertsSettings.discordPlaceholder')}
                   value={newChannel.webhookUrl}
                   onChange={(e) => setNewChannel((c) => ({ ...c, webhookUrl: e.target.value }))}
                   className="bg-panel border border-border-soft rounded px-2 py-1 font-mono text-[13px] text-ink w-full max-w-md mb-1.5"
@@ -233,7 +239,7 @@ export default function HostedAlertsSettings({ onClose, onSaved }) {
               ) : newChannel.type === 'email' ? (
                 <input
                   type="text"
-                  placeholder="Send alerts to this address"
+                  placeholder={t('alertsSettings.sendToPlaceholder')}
                   value={newChannel.to}
                   onChange={(e) => setNewChannel((c) => ({ ...c, to: e.target.value }))}
                   className="bg-panel border border-border-soft rounded px-2 py-1 font-mono text-[13px] text-ink w-full max-w-xs mb-1.5"
@@ -242,14 +248,14 @@ export default function HostedAlertsSettings({ onClose, onSaved }) {
                 <div className="flex items-center gap-2 flex-wrap mb-1.5">
                   <input
                     type="text"
-                    placeholder="Bot token (from @BotFather)"
+                    placeholder={t('alertsSettings.botTokenPlaceholder')}
                     value={newChannel.botToken}
                     onChange={(e) => setNewChannel((c) => ({ ...c, botToken: e.target.value }))}
                     className="bg-panel border border-border-soft rounded px-2 py-1 font-mono text-[13px] text-ink w-full max-w-xs"
                   />
                   <input
                     type="text"
-                    placeholder="Chat ID"
+                    placeholder={t('alertsSettings.chatIdPlaceholder')}
                     value={newChannel.chatId}
                     onChange={(e) => setNewChannel((c) => ({ ...c, chatId: e.target.value }))}
                     className="bg-panel border border-border-soft rounded px-2 py-1 font-mono text-[13px] text-ink w-full max-w-xs"
@@ -262,7 +268,7 @@ export default function HostedAlertsSettings({ onClose, onSaved }) {
                 disabled={adding}
                 className="text-[13px] font-semibold text-ink bg-panel-raised border border-border hover:border-accent hover:text-accent rounded-md px-3.5 py-1.5 disabled:opacity-50"
               >
-                {adding ? 'Adding…' : 'Add channel'}
+                {adding ? t('hostedAlertsSettings.adding') : t('hostedAlertsSettings.addChannelBtn')}
               </button>
               {addError && <div className="text-[12px] text-down mt-1">{addError}</div>}
             </div>
@@ -276,10 +282,10 @@ export default function HostedAlertsSettings({ onClose, onSaved }) {
             disabled={saving}
             className="text-[13px] font-semibold text-[#f5f7fc] bg-accent hover:brightness-110 rounded-md px-3.5 py-1.5 disabled:opacity-50"
           >
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('alertsSettings.saving') : t('alertsSettings.save')}
           </button>
           <button type="button" onClick={onClose} className="link-btn text-[13px]">
-            Cancel
+            {t('alertsSettings.cancel')}
           </button>
           {saveError && <span className="text-[13px] text-down">{saveError}</span>}
         </div>

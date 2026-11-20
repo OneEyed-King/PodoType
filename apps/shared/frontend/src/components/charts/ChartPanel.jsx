@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -40,9 +41,10 @@ function fmtTimeFull(ms) {
 }
 
 function TooltipContent({ active, payload, label, unit, valueFormatter }) {
+  const { t } = useTranslation();
   if (!active || !payload || payload.length === 0) return null;
   const v = payload[0].value;
-  const text = v === null || v === undefined ? 'no data' : valueFormatter ? valueFormatter(v) : `${v}${unit || ''}`;
+  const text = v === null || v === undefined ? t('chartPanel.noData') : valueFormatter ? valueFormatter(v) : `${v}${unit || ''}`;
   return (
     <div className="bg-panel-raised border border-border rounded-md px-2.5 py-1.5 text-[12px] shadow-lg">
       <div className="text-muted font-mono text-[11px] mb-0.5">{fmtTimeFull(label)}</div>
@@ -60,9 +62,11 @@ export default function ChartPanel({
   currentText,
   tone,
   height = 220,
-  emptyText = 'No data yet for this window.',
+  emptyText,
   infoTitle,
 }) {
+  const { t } = useTranslation();
+  const resolvedEmptyText = emptyText ?? t('chartPanel.emptyDefault');
   const gradId = useId().replace(/[:]/g, '');
   const data = (points || []).map((p) => ({ t: p.t, v: p.v }));
   const enoughPoints = data.filter((p) => p.v !== null && p.v !== undefined && Number.isFinite(p.v)).length >= 2;
@@ -78,7 +82,7 @@ export default function ChartPanel({
       )}
       {!enoughPoints ? (
         <div className="flex items-center justify-center text-[13px] text-muted" style={{ height }}>
-          {emptyText}
+          {resolvedEmptyText}
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={height}>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import StatusPill, { statusPillProps, tracePillProps } from './StatusPill.jsx';
 import ServiceDetailPanel from './ServiceDetailPanel.jsx';
 
@@ -8,15 +9,15 @@ import ServiceDetailPanel from './ServiceDetailPanel.jsx';
 // exactly like the row did, it's just not squeezed between every other
 // watched service anymore.
 export default function ServiceDetailPage({ svc, onBack, ...panelProps }) {
+  const { t } = useTranslation();
+
   if (!svc) {
     return (
       <div>
         <button type="button" onClick={onBack} className="link-btn text-accent text-[13px] mb-3">
-          ← Back to services
+          {t('serviceDetailPage.backToServices')}
         </button>
-        <p className="text-muted text-[15px]">
-          That service isn't watched anymore — it may have just been removed or stopped.
-        </p>
+        <p className="text-muted text-[15px]">{t('serviceDetailPage.notWatchedAnymore')}</p>
       </div>
     );
   }
@@ -27,7 +28,7 @@ export default function ServiceDetailPage({ svc, onBack, ...panelProps }) {
   return (
     <div>
       <button type="button" onClick={onBack} className="link-btn text-accent text-[13px] mb-3">
-        ← Back to services
+        {t('serviceDetailPage.backToServices')}
       </button>
       <div className="flex items-center gap-3 flex-wrap mb-4">
         <h1 className="text-[22px] font-bold font-mono m-0 [overflow-wrap:anywhere]">{svc.name}</h1>

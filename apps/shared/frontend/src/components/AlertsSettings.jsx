@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api.js';
 import InfoDot from './InfoDot.jsx';
 
@@ -20,10 +21,11 @@ function TriggerToggle({ label, hint, checked, onChange }) {
 // memory/error-rate all share it); latency passes "ms" instead so this one
 // component covers every threshold pair rather than a near-duplicate for ms.
 function ThresholdPair({ label, warning, critical, onWarning, onCritical, unit = '%', max = 100 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-2 text-[13px] flex-wrap">
       <span className="text-ink-dim w-14 shrink-0">{label}</span>
-      <span className="text-muted">warn ≥</span>
+      <span className="text-muted">{t('alertsSettings.warnPrefix')}</span>
       <input
         type="number"
         min="0"
@@ -32,7 +34,7 @@ function ThresholdPair({ label, warning, critical, onWarning, onCritical, unit =
         onChange={(e) => onWarning(e.target.value)}
         className="w-16 bg-panel border border-border-soft rounded px-1.5 py-0.5 font-mono text-[13px] text-ink"
       />
-      <span className="text-muted">{unit}, critical ≥</span>
+      <span className="text-muted">{unit}, {t('alertsSettings.criticalPrefix')}</span>
       <input
         type="number"
         min="0"
@@ -53,6 +55,7 @@ function ThresholdPair({ label, warning, critical, onWarning, onCritical, unit =
 // and hoping is exactly the kind of unverified assumption this project has
 // otherwise held itself to a higher bar than.
 function ChannelSection({ title, description, enabled, onToggleEnabled, fields, onTest, testResult, testing }) {
+  const { t } = useTranslation();
   return (
     <div className="border border-border-soft rounded-md p-2.5">
       <label className="flex items-center gap-2 text-[14px] font-semibold cursor-pointer select-none">
@@ -70,11 +73,15 @@ function ChannelSection({ title, description, enabled, onToggleEnabled, fields, 
               disabled={testing}
               className="text-[13px] font-semibold text-ink bg-panel-raised border border-border hover:border-accent hover:text-accent rounded-md px-3.5 py-1.5 disabled:opacity-50"
             >
-              {testing ? 'Sending…' : 'Send test message'}
+              {testing ? t('alertsSettings.sendingTest') : t('alertsSettings.sendTestMessage')}
             </button>
             {testResult && (
               <span className={`text-[12px] ${testResult.ok ? 'text-up' : 'text-down'}`}>
-                {testResult.ok ? '✓ delivered' : `✗ ${testResult.error || 'failed'}`}
+                {testResult.ok
+                  ? t('alertsSettings.delivered')
+                  : testResult.error
+                  ? t('alertsSettings.failed', { error: testResult.error })
+                  : t('alertsSettings.failedGeneric')}
               </span>
             )}
           </div>
@@ -91,6 +98,7 @@ function ChannelSection({ title, description, enabled, onToggleEnabled, fields, 
 // Fetches the current config fresh every time it opens (not cached in a
 // parent) since it's only mounted while actually visible.
 export default function AlertsSettings({ onClose, onSaved }) {
+  const { t } = useTranslation();
   const [config, setConfig] = useState(null);
   const [loadError, setLoadError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -106,10 +114,10 @@ export default function AlertsSettings({ onClose, onSaved }) {
   }, []);
 
   if (loadError) {
-    return <div className="mb-5 text-[13px] text-down">Couldn't load alert settings: {loadError}</div>;
+    return <div className="mb-5 text-[13px] text-down">{t('alertsSettings.loadError', { error: loadError })}</div>;
   }
   if (!config) {
-    return <div className="mb-5 text-[13px] text-muted">Loading alert settings…</div>;
+    return <div className="mb-5 text-[13px] text-muted">{t('alertsSettings.loading')}</div>;
   }
 
   function updateEnabled(key, value) {
@@ -164,8 +172,8 @@ export default function AlertsSettings({ onClose, onSaved }) {
   return (
     <div className="mb-5 border border-border rounded-lg overflow-hidden">
       <div className="px-3.5 py-2 border-b border-border-soft flex items-center justify-between">
-        <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim">Configure alerts</span>
-        <button type="button" className="link-btn text-muted hover:text-ink text-[15px] leading-none" onClick={onClose} title="Close without saving">
+        <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim">{t('alertsSettings.configureTitle')}</span>
+        <button type="button" className="link-btn text-muted hover:text-ink text-[15px] leading-none" onClick={onClose} title={t('alertsSettings.closeWithoutSaving')}>
           ×
         </button>
       </div>
@@ -173,32 +181,32 @@ export default function AlertsSettings({ onClose, onSaved }) {
       <div className="px-3.5 py-3 flex flex-col gap-4">
         <div>
           <div className="text-[12px] font-bold uppercase tracking-wider text-muted mb-1 inline-flex items-center gap-1.5">
-            Triggers
-            <InfoDot title="Each of these already computes a live status elsewhere on this dashboard — this just decides whether that status is also allowed to fire a sustained alert." />
+            {t('alertsSettings.triggers')}
+            <InfoDot title={t('alertsSettings.triggersTooltip')} />
           </div>
           <TriggerToggle
-            label="Service down"
-            hint="a watched container reports not running/unhealthy"
+            label={t('alertsSettings.serviceDown')}
+            hint={t('alertsSettings.serviceDownHint')}
             checked={config.enabled.serviceDown}
             onChange={(v) => updateEnabled('serviceDown', v)}
           />
           <TriggerToggle
-            label="Disk / storage critical"
-            hint="ClickHouse's own volume is running low"
+            label={t('alertsSettings.storage')}
+            hint={t('alertsSettings.storageHint')}
             checked={config.enabled.storage}
             onChange={(v) => updateEnabled('storage', v)}
           />
-          <TriggerToggle label="CPU threshold" checked={config.enabled.cpu} onChange={(v) => updateEnabled('cpu', v)} />
-          <TriggerToggle label="Memory threshold" checked={config.enabled.memory} onChange={(v) => updateEnabled('memory', v)} />
+          <TriggerToggle label={t('alertsSettings.cpuThreshold')} checked={config.enabled.cpu} onChange={(v) => updateEnabled('cpu', v)} />
+          <TriggerToggle label={t('alertsSettings.memoryThreshold')} checked={config.enabled.memory} onChange={(v) => updateEnabled('memory', v)} />
           <TriggerToggle
-            label="Error rate threshold"
-            hint="a watched service's real request traffic is coming back 5xx"
+            label={t('alertsSettings.errorRateThreshold')}
+            hint={t('alertsSettings.errorRateHint')}
             checked={config.enabled.errorRate}
             onChange={(v) => updateEnabled('errorRate', v)}
           />
           <TriggerToggle
-            label="Latency threshold"
-            hint="p95 response time crosses the line below"
+            label={t('alertsSettings.latencyThreshold')}
+            hint={t('alertsSettings.latencyHint')}
             checked={config.enabled.latency}
             onChange={(v) => updateEnabled('latency', v)}
           />
@@ -206,32 +214,32 @@ export default function AlertsSettings({ onClose, onSaved }) {
 
         <div>
           <div className="text-[12px] font-bold uppercase tracking-wider text-muted mb-1.5 inline-flex items-center gap-1.5">
-            Thresholds
+            {t('alertsSettings.thresholds')}
           </div>
           <div className="flex flex-col gap-1.5">
             <ThresholdPair
-              label="CPU"
+              label={t('alertsSettings.cpu')}
               warning={config.thresholds.cpuWarningPercent}
               critical={config.thresholds.cpuCriticalPercent}
               onWarning={(v) => updateThreshold('cpuWarningPercent', v)}
               onCritical={(v) => updateThreshold('cpuCriticalPercent', v)}
             />
             <ThresholdPair
-              label="Memory"
+              label={t('alertsSettings.memory')}
               warning={config.thresholds.memWarningPercent}
               critical={config.thresholds.memCriticalPercent}
               onWarning={(v) => updateThreshold('memWarningPercent', v)}
               onCritical={(v) => updateThreshold('memCriticalPercent', v)}
             />
             <ThresholdPair
-              label="Error rate"
+              label={t('alertsSettings.errorRate')}
               warning={config.thresholds.errorRateWarningPercent}
               critical={config.thresholds.errorRateCriticalPercent}
               onWarning={(v) => updateThreshold('errorRateWarningPercent', v)}
               onCritical={(v) => updateThreshold('errorRateCriticalPercent', v)}
             />
             <ThresholdPair
-              label="Latency"
+              label={t('alertsSettings.latency')}
               unit="ms"
               max={60000}
               warning={config.thresholds.latencyWarningMs}
@@ -240,17 +248,14 @@ export default function AlertsSettings({ onClose, onSaved }) {
               onCritical={(v) => updateThreshold('latencyCriticalMs', v)}
             />
           </div>
-          <div className="text-[12px] text-muted mt-1">
-            Error rate and latency only ever fire for a service that Beyla is already seeing real traffic for — switch
-            them on once you've confirmed that under eBPF Data.
-          </div>
+          <div className="text-[12px] text-muted mt-1">{t('alertsSettings.thresholdNote')}</div>
         </div>
 
         <div>
           <label className="flex items-center gap-2 text-[13px]">
             <span className="text-ink-dim inline-flex items-center gap-1.5">
-              Sustained for
-              <InfoDot title="A condition has to stay breached across this many consecutive checks (checked every 15s) before it actually fires, and clears the moment one check comes back healthy — avoids alerting on a single noisy blip." />
+              {t('alertsSettings.sustainedFor')}
+              <InfoDot title={t('alertsSettings.sustainedTooltip')} />
             </span>
             <input
               type="number"
@@ -260,16 +265,16 @@ export default function AlertsSettings({ onClose, onSaved }) {
               onChange={(e) => setConfig((c) => ({ ...c, sustainChecks: e.target.value === '' ? '' : Number(e.target.value) }))}
               className="w-14 bg-panel border border-border-soft rounded px-1.5 py-0.5 font-mono text-[13px] text-ink"
             />
-            <span className="text-muted">consecutive checks</span>
+            <span className="text-muted">{t('alertsSettings.consecutiveChecks')}</span>
           </label>
         </div>
 
         <div>
-          <div className="text-[12px] font-bold uppercase tracking-wider text-muted mb-1.5">Delivery</div>
+          <div className="text-[12px] font-bold uppercase tracking-wider text-muted mb-1.5">{t('alertsSettings.delivery')}</div>
           <div className="flex flex-col gap-2">
             <ChannelSection
-              title="Telegram"
-              description="Free — message a bot you create via @BotFather, then send it any message once so it can find your chat ID."
+              title={t('alertsSettings.telegramTitle')}
+              description={t('alertsSettings.telegramDesc')}
               enabled={config.channels.telegram.enabled}
               onToggleEnabled={(v) => updateChannel('telegram', 'enabled', v)}
               onTest={() => runTest('telegram')}
@@ -279,14 +284,14 @@ export default function AlertsSettings({ onClose, onSaved }) {
                 <>
                   <input
                     type="text"
-                    placeholder="Bot token (from @BotFather)"
+                    placeholder={t('alertsSettings.botTokenPlaceholder')}
                     value={config.channels.telegram.botToken}
                     onChange={(e) => updateChannel('telegram', 'botToken', e.target.value)}
                     className="bg-panel border border-border-soft rounded px-2 py-1 font-mono text-[13px] text-ink w-full max-w-xs"
                   />
                   <input
                     type="text"
-                    placeholder="Chat ID"
+                    placeholder={t('alertsSettings.chatIdPlaceholder')}
                     value={config.channels.telegram.chatId}
                     onChange={(e) => updateChannel('telegram', 'chatId', e.target.value)}
                     className="bg-panel border border-border-soft rounded px-2 py-1 font-mono text-[13px] text-ink w-full max-w-xs"
@@ -295,8 +300,8 @@ export default function AlertsSettings({ onClose, onSaved }) {
               }
             />
             <ChannelSection
-              title="Webhook"
-              description="Works with Slack, Discord, or anything else that accepts an incoming webhook URL."
+              title={t('alertsSettings.webhookTitle')}
+              description={t('alertsSettings.webhookDesc')}
               enabled={config.channels.webhook.enabled}
               onToggleEnabled={(v) => updateChannel('webhook', 'enabled', v)}
               onTest={() => runTest('webhook')}
@@ -305,7 +310,7 @@ export default function AlertsSettings({ onClose, onSaved }) {
               fields={
                 <input
                   type="text"
-                  placeholder="https://hooks.slack.com/services/... or Discord webhook URL"
+                  placeholder={t('alertsSettings.webhookPlaceholder')}
                   value={config.channels.webhook.url}
                   onChange={(e) => updateChannel('webhook', 'url', e.target.value)}
                   className="bg-panel border border-border-soft rounded px-2 py-1 font-mono text-[13px] text-ink w-full max-w-md"
@@ -313,8 +318,8 @@ export default function AlertsSettings({ onClose, onSaved }) {
               }
             />
             <ChannelSection
-              title="Email"
-              description="Sent via your own mailbox — Gmail, Google Workspace, Zoho Mail, Outlook, or any other SMTP provider. Use an app-specific password if your provider asks for one once 2FA is on (Gmail/Workspace: myaccount.google.com/apppasswords; Zoho: Security › App Passwords)."
+              title={t('alertsSettings.emailTitle')}
+              description={t('alertsSettings.emailDesc')}
               enabled={config.channels.email.enabled}
               onToggleEnabled={(v) => updateChannel('email', 'enabled', v)}
               onTest={() => runTest('email')}
@@ -325,37 +330,37 @@ export default function AlertsSettings({ onClose, onSaved }) {
                   <div className="flex items-center gap-2 flex-wrap">
                     <input
                       type="text"
-                      placeholder="SMTP host — e.g. smtp.zoho.com, smtp.gmail.com"
+                      placeholder={t('alertsSettings.smtpHostPlaceholder')}
                       value={config.channels.email.smtpHost}
                       onChange={(e) => updateChannel('email', 'smtpHost', e.target.value)}
                       className="bg-panel border border-border-soft rounded px-2 py-1 font-mono text-[13px] text-ink w-full max-w-[13rem]"
                     />
                     <input
                       type="number"
-                      placeholder="Port"
+                      placeholder={t('alertsSettings.portPlaceholder')}
                       value={config.channels.email.smtpPort}
                       onChange={(e) => updateChannel('email', 'smtpPort', e.target.value === '' ? '' : Number(e.target.value))}
                       className="bg-panel border border-border-soft rounded px-2 py-1 font-mono text-[13px] text-ink w-20"
                     />
-                    <span className="text-muted text-[12px]">465 = SSL, 587 = STARTTLS</span>
+                    <span className="text-muted text-[12px]">{t('alertsSettings.portHint')}</span>
                   </div>
                   <input
                     type="text"
-                    placeholder="Mailbox address (sender) — you@yourdomain.com"
+                    placeholder={t('alertsSettings.senderPlaceholder')}
                     value={config.channels.email.smtpUser}
                     onChange={(e) => updateChannel('email', 'smtpUser', e.target.value)}
                     className="bg-panel border border-border-soft rounded px-2 py-1 font-mono text-[13px] text-ink w-full max-w-xs"
                   />
                   <input
                     type="password"
-                    placeholder="Password (or app-specific password)"
+                    placeholder={t('alertsSettings.passwordPlaceholder')}
                     value={config.channels.email.smtpPassword}
                     onChange={(e) => updateChannel('email', 'smtpPassword', e.target.value)}
                     className="bg-panel border border-border-soft rounded px-2 py-1 font-mono text-[13px] text-ink w-full max-w-xs"
                   />
                   <input
                     type="text"
-                    placeholder="Send alerts to this address"
+                    placeholder={t('alertsSettings.sendToPlaceholder')}
                     value={config.channels.email.to}
                     onChange={(e) => updateChannel('email', 'to', e.target.value)}
                     className="bg-panel border border-border-soft rounded px-2 py-1 font-mono text-[13px] text-ink w-full max-w-xs"
@@ -373,10 +378,10 @@ export default function AlertsSettings({ onClose, onSaved }) {
             disabled={saving}
             className="text-[13px] font-semibold text-[#f5f7fc] bg-accent hover:brightness-110 rounded-md px-3.5 py-1.5 disabled:opacity-50"
           >
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('alertsSettings.saving') : t('alertsSettings.save')}
           </button>
           <button type="button" onClick={onClose} className="link-btn text-[13px]">
-            Cancel
+            {t('alertsSettings.cancel')}
           </button>
           {saveError && <span className="text-[13px] text-down">{saveError}</span>}
         </div>

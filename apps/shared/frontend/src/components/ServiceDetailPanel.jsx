@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import TracesPanel from './TracesPanel.jsx';
 import ResourceHealthPanel from './ResourceHealthPanel.jsx';
 import MetricsHistoryRange from './MetricsHistoryRange.jsx';
@@ -28,14 +29,15 @@ export default function ServiceDetailPanel({
   supportsCodeTracing = true,
   supportsAlertOverrides = true,
 }) {
+  const { t } = useTranslation();
   const TABS = [
-    { id: 'traces', label: '📈 Traces' },
-    { id: 'health', label: '🖥 Health' },
-    { id: 'metrics', label: '📊 Metrics' },
-    { id: 'logs', label: '📝 Logs' },
-    ...(supportsAlertOverrides ? [{ id: 'alerts', label: '🔔 Alerts' }] : []),
-    { id: 'slo', label: '📊 SLO' },
-    { id: 'dependencies', label: '🔗 Dependencies' },
+    { id: 'traces', label: t('serviceDetailPanel.tabTraces') },
+    { id: 'health', label: t('serviceDetailPanel.tabHealth') },
+    { id: 'metrics', label: t('serviceDetailPanel.tabMetrics') },
+    { id: 'logs', label: t('serviceDetailPanel.tabLogs') },
+    ...(supportsAlertOverrides ? [{ id: 'alerts', label: t('serviceDetailPanel.tabAlerts') }] : []),
+    { id: 'slo', label: t('serviceDetailPanel.tabSlo') },
+    { id: 'dependencies', label: t('serviceDetailPanel.tabDependencies') },
   ];
   const tab = TABS.some((t) => t.id === activeTab) ? activeTab : TABS[0].id;
 
@@ -46,18 +48,18 @@ export default function ServiceDetailPanel({
           {svc.check ? (
             <>
               <span className="font-mono text-[16px] text-muted [overflow-wrap:anywhere]">
-                manual check — {svc.check.type}: {svc.check.target}
+                {t('serviceDetailPanel.manualCheckPrefix', { type: svc.check.type, target: svc.check.target })}
               </span>
               <button type="button" className="link-btn" onClick={() => onSetupCheck(svc.check)}>
-                Edit
+                {t('serviceDetailPanel.edit')}
               </button>
               <button type="button" className="link-btn" onClick={onRemoveCheck}>
-                Remove
+                {t('serviceDetailPanel.remove')}
               </button>
             </>
           ) : (
             <button type="button" className="link-btn" onClick={() => onSetupCheck(null)}>
-              Add manual health check (optional)
+              {t('serviceDetailPanel.addManualCheck')}
             </button>
           )}
         </div>
@@ -65,18 +67,18 @@ export default function ServiceDetailPanel({
 
       <div className="border border-border-soft rounded-md overflow-hidden">
         <div className="flex items-center gap-1 px-2 pt-2 border-b border-border-soft overflow-x-auto">
-          {TABS.map((t) => (
+          {TABS.map((tb) => (
             <button
-              key={t.id}
+              key={tb.id}
               type="button"
-              onClick={() => onSelectTab(t.id)}
+              onClick={() => onSelectTab(tb.id)}
               className={`shrink-0 text-[13px] font-semibold px-3 py-1.5 rounded-t-md border-b-2 transition-colors ${
-                tab === t.id
+                tab === tb.id
                   ? 'text-accent border-accent bg-accent/5'
                   : 'text-ink-dim border-transparent hover:text-ink hover:border-border'
               }`}
             >
-              {t.label}
+              {tb.label}
             </button>
           ))}
         </div>

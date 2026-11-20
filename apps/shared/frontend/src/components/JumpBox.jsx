@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 // A keyboard-first "go to..." box — Ctrl+K / Cmd+K from anywhere on the
 // page opens it (see App.jsx's keydown listener), type to filter, Enter
@@ -11,6 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 // outside-click/Escape pattern this follows, the closest existing
 // precedent in this codebase).
 export default function JumpBox({ items, onSelect, onClose }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef(null);
@@ -65,12 +67,12 @@ export default function JumpBox({ items, onSelect, onClose }) {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Go to a service, the service map, query console…"
+          placeholder={t('jumpBox.placeholder')}
           className="w-full bg-transparent px-4 py-3 text-[14px] font-mono outline-none border-b border-border-soft placeholder:text-muted"
         />
         <div className="max-h-[50vh] overflow-y-auto">
           {filtered.length === 0 && (
-            <div className="px-4 py-3 text-[13px] text-muted">No matches.</div>
+            <div className="px-4 py-3 text-[13px] text-muted">{t('jumpBox.noMatches')}</div>
           )}
           {filtered.map((it, i) => (
             <button
@@ -88,9 +90,9 @@ export default function JumpBox({ items, onSelect, onClose }) {
           ))}
         </div>
         <div className="px-4 py-1.5 border-t border-border-soft text-[11px] text-muted font-mono flex items-center gap-3">
-          <span>↑↓ navigate</span>
-          <span>↵ select</span>
-          <span>esc close</span>
+          <span>{t('jumpBox.navigate')}</span>
+          <span>{t('jumpBox.select')}</span>
+          <span>{t('jumpBox.close')}</span>
         </div>
       </div>
     </div>

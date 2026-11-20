@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import './index.css';
+import './i18n/index.js';
 
 // One top-level component for both builds now — App.jsx itself branches
 // on DEPLOY_MODE (see its own HOSTED constant/comment) rather than this

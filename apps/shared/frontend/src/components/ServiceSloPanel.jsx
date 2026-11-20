@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api.js';
 
 // Named, pass/fail conditions for a service — "99% of requests under
@@ -17,34 +18,34 @@ import { api } from '../api.js';
 // condition below is only shown when its underlying threshold field is
 // actually present, rather than assuming one shape and showing a
 // misleading "—" for the other build.
-function buildConditions(thresholds, svc) {
+function buildConditions(thresholds, svc, t) {
   const conditions = [];
-  const t = thresholds || {};
+  const th = thresholds || {};
 
   const errorRateTargetPercent =
-    typeof t.errorRateCriticalPercent === 'number'
-      ? t.errorRateCriticalPercent
-      : typeof t.errorRatePercent === 'number'
-      ? t.errorRatePercent
+    typeof th.errorRateCriticalPercent === 'number'
+      ? th.errorRateCriticalPercent
+      : typeof th.errorRatePercent === 'number'
+      ? th.errorRatePercent
       : null;
   if (errorRateTargetPercent !== null && svc.red && typeof svc.red.errorRate === 'number') {
     const currentPercent = svc.red.errorRate * 100;
     conditions.push({
       key: 'availability',
-      label: 'Availability',
-      detail: `error rate stays under ${errorRateTargetPercent}%`,
+      label: t('serviceSloPanel.availability'),
+      detail: t('serviceSloPanel.availabilityDetail', { pct: errorRateTargetPercent }),
       ok: currentPercent < errorRateTargetPercent,
-      current: `${currentPercent.toFixed(1)}% errors now`,
+      current: t('serviceSloPanel.availabilityCurrent', { pct: currentPercent.toFixed(1) }),
     });
   }
 
-  if (typeof t.latencyCriticalMs === 'number' && svc.trace && typeof svc.trace.p95Ms === 'number') {
+  if (typeof th.latencyCriticalMs === 'number' && svc.trace && typeof svc.trace.p95Ms === 'number') {
     conditions.push({
       key: 'latency',
-      label: 'Latency',
-      detail: `p95 stays under ${Math.round(t.latencyCriticalMs)}ms`,
-      ok: svc.trace.p95Ms < t.latencyCriticalMs,
-      current: `${Math.round(svc.trace.p95Ms)}ms now`,
+      label: t('serviceSloPanel.latency'),
+      detail: t('serviceSloPanel.latencyDetail', { ms: Math.round(th.latencyCriticalMs) }),
+      ok: svc.trace.p95Ms < th.latencyCriticalMs,
+      current: t('serviceSloPanel.latencyCurrent', { ms: Math.round(svc.trace.p95Ms) }),
     });
   }
 
@@ -52,6 +53,7 @@ function buildConditions(thresholds, svc) {
 }
 
 export default function ServiceSloPanel({ svc }) {
+  const { t } = useTranslation();
   const [effective, setEffective] = useState(null);
   const [error, setError] = useState(null);
 
@@ -72,15 +74,16 @@ export default function ServiceSloPanel({ svc }) {
   }, [svc.name]);
 
   if (error) return <div className="text-[13px] text-down">{error}</div>;
-  if (!effective) return <div className="text-[13px] text-muted">loading…</div>;
+  if (!effective) return <div className="text-[13px] text-muted">{t('serviceSloPanel.loading')}</div>;
 
-  const conditions = buildConditions(effective.thresholds, svc);
+  const conditions = buildConditions(effective.thresholds, svc, t);
 
   if (conditions.length === 0) {
     return (
       <div className="text-[13px] text-muted">
-        No SLO conditions configured yet for this service — set an error-rate
-        {typeof effective.thresholds?.latencyCriticalMs !== 'number' ? '' : ' or latency'} threshold above to get one.
+        {t('serviceSloPanel.noConditions', {
+          suffix: typeof effective.thresholds?.latencyCriticalMs !== 'number' ? '' : t('serviceSloPanel.orLatencySuffix'),
+        })}
       </div>
     );
   }
@@ -89,7 +92,7 @@ export default function ServiceSloPanel({ svc }) {
     <div className="flex flex-col gap-1.5">
       {conditions.map((c) => (
         <div key={c.key} className="flex items-center gap-2 text-[13px]">
-          <span className={`pill ${c.ok ? 'pill-up' : 'pill-down'} shrink-0`}>{c.ok ? 'OK' : 'violating'}</span>
+          <span className={`pill ${c.ok ? 'pill-up' : 'pill-down'} shrink-0`}>{c.ok ? t('serviceSloPanel.ok') : t('serviceSloPanel.violating')}</span>
           <span className="font-semibold">{c.label}:</span>
           <span className="text-ink-dim">{c.detail}</span>
           <span className="text-muted font-mono text-[12px] ml-auto">{c.current}</span>

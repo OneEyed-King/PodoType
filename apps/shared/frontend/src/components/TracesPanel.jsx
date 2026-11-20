@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import InfoDot from './InfoDot.jsx';
 import ChartPanel from './charts/ChartPanel.jsx';
 import MultiSeriesChartPanel from './charts/MultiSeriesChartPanel.jsx';
@@ -45,6 +46,7 @@ export default function TracesPanel({
   // anymore.
   supportsCodeTracing = true,
 }) {
+  const { t } = useTranslation();
   const trace = svc.trace;
   const red = svc.red;
   const codeTracingSetup = Boolean(cfg.otel && cfg.otel.enabled);
@@ -136,8 +138,8 @@ export default function TracesPanel({
     <div className="bg-panel-recessed border border-border-soft rounded-md overflow-hidden">
       <div className="flex items-center justify-between px-2.5 py-2 border-b border-border-soft text-[12px] font-bold uppercase tracking-wider text-muted">
         <span className="inline-flex items-center gap-1.5">
-          Traces
-          <InfoDot title="Two independent ways this service's requests can show up here: Spans (automatic, always on, no setup — a shared host-wide watcher captures shallower process-boundary spans for every container) and Code Tracing (opt-in, needs a small compose-file addition, deeper code-level spans via a real OpenTelemetry agent). Whichever one actually has data for this service shows its trace list below." />
+          {t('tracesPanel.title')}
+          <InfoDot title={t('tracesPanel.tooltip')} />
         </span>
       </div>
 
@@ -145,16 +147,16 @@ export default function TracesPanel({
         {hasGoldenSignals && (
           <div className="flex gap-3 flex-wrap pb-2.5 border-b border-border-soft">
             <ChartPanel
-              label="Requests/sec"
+              label={t('tracesPanel.requestsPerSec')}
               points={reqRatePoints}
               color="rgb(var(--color-accent))"
               currentText={lastValue(reqRatePoints) !== undefined ? lastValue(reqRatePoints).toFixed(1) : '—'}
               valueFormatter={(v) => v.toFixed(1)}
               height={180}
-              infoTitle="Every request Beyla's eBPF watcher saw for this container, charted over time."
+              infoTitle={t('tracesPanel.requestsChartInfo')}
             />
             <ChartPanel
-              label="Error rate"
+              label={t('tracesPanel.errorRateLabel')}
               points={errRatePoints}
               color={lastValue(errRatePoints) > 0 ? 'rgb(var(--color-down))' : 'rgb(var(--color-accent))'}
               tone={lastValue(errRatePoints) > 0 ? 'text-down' : undefined}
@@ -162,60 +164,69 @@ export default function TracesPanel({
               unit="%"
               valueFormatter={(v) => `${v.toFixed(0)}%`}
               height={180}
-              infoTitle="Share of requests that came back with a 5xx status, charted over time."
+              infoTitle={t('tracesPanel.errorRateChartInfo')}
             />
             <MultiSeriesChartPanel
-              label="Latency (p50 / p95 / p99)"
+              label={t('tracesPanel.latencyLabel')}
               data={latencyRows}
               series={LATENCY_SERIES}
               unit="ms"
               valueFormatter={(v) => `${Math.round(v)}ms`}
               height={180}
-              infoTitle="The full latency distribution, not just one percentile — p99 shows the tail a p95-only chart can hide."
+              infoTitle={t('tracesPanel.latencyChartInfo')}
             />
           </div>
         )}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <span className="font-mono text-[12px] text-muted">
-            <span className="text-ink-dim font-semibold">Requests</span> (rate/errors) —{' '}
+            <span className="text-ink-dim font-semibold">{t('tracesPanel.requestsRowLabel')}</span>{' '}
+            {t('tracesPanel.rateErrorsSuffix')} —{' '}
             {svc.up === false ? (
-              'container not running'
+              t('tracesPanel.containerNotRunning')
             ) : red ? (
               <span className={errorPct > 0 ? 'text-slow' : 'text-accent'}>
-                {rateText} · {errorPct}% errors
+                {t('tracesPanel.rateErrorsText', { rate: rateText, errorPct })}
               </span>
             ) : (
-              'no data in the last few minutes yet'
+              t('tracesPanel.noDataYet')
             )}
-            <InfoDot title="Every request Beyla's eBPF watcher saw for this container, counted directly — not limited to the handful of traces shown below. Rate is requests/sec over the last ~15s; errors are the share of those with a 5xx status." />
+            <InfoDot title={t('tracesPanel.requestsRowInfo')} />
           </span>
         </div>
 
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <span className="font-mono text-[12px] text-muted">
-            <span className="text-ink-dim font-semibold">Ingestion</span> (volume) —{' '}
+            <span className="text-ink-dim font-semibold">{t('tracesPanel.ingestionRowLabel')}</span>{' '}
+            {t('tracesPanel.volumeSuffix')} —{' '}
             {spansRateText || logsRateText ? (
               <span className="text-ink-dim">
-                {spansRateText !== null ? `${spansRateText} spans/s` : 'no spans'}
+                {spansRateText !== null
+                  ? t('tracesPanel.spansPerSec', { rate: spansRateText })
+                  : t('tracesPanel.noSpans')}
                 {' · '}
-                {logsRateText !== null ? `${logsRateText} logs/s` : 'log storage off'}
+                {logsRateText !== null
+                  ? t('tracesPanel.logsPerSec', { rate: logsRateText })
+                  : t('tracesPanel.logStorageOff')}
               </span>
             ) : (
-              'no telemetry stored in the last minute'
+              t('tracesPanel.noTelemetryStored')
             )}
-            <InfoDot title="How much telemetry is actually being stored for this service right now, separate from request rate above — spans/sec written to the trace store, and logs/sec written to the log store (only counted when this service has log storage turned on)." />
+            <InfoDot title={t('tracesPanel.ingestionRowInfo')} />
           </span>
         </div>
 
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <span className="font-mono text-[12px] text-muted">
-            <span className="text-ink-dim font-semibold">Spans</span> (automatic) —{' '}
+            <span className="text-ink-dim font-semibold">{t('tracesPanel.spansRowLabel')}</span>{' '}
+            {t('tracesPanel.automaticSuffix')} —{' '}
             {hasSpansData ? (
-              <span className="text-accent">{latencyText} · {trace.status === 'recent' ? 'live' : 'idle'}</span>
+              <span className="text-accent">
+                {latencyText} · {trace.status === 'recent' ? t('tracesPanel.live') : t('tracesPanel.idle')}
+              </span>
             ) : hasCodeTracingData ? (
-              'quiet — Code Tracing below is live instead'
+              t('tracesPanel.quietCodeTracingLive')
             ) : (
-              'no data in the last few minutes yet'
+              t('tracesPanel.noDataYet')
             )}
           </span>
         </div>
@@ -223,29 +234,34 @@ export default function TracesPanel({
         {supportsCodeTracing ? (
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <span className="font-mono text-[12px] text-muted">
-              <span className="text-ink-dim font-semibold">Code Tracing</span> (opt-in) —{' '}
+              <span className="text-ink-dim font-semibold">{t('tracesPanel.codeTracingRowLabel')}</span>{' '}
+              {t('tracesPanel.optInSuffix')} —{' '}
               {!codeTracingSetup ? (
                 // Read-only now — turning this on/off, and picking the
                 // language, only ever happens from the dedicated Code
                 // Tracing page (see Sidebar.jsx) now, not a native
                 // window.prompt dialog triggered from in here. See that
                 // page's own header comment for why this moved.
-                'off — manage from Code Tracing in the sidebar'
+                t('tracesPanel.offManageSidebar')
               ) : hasCodeTracingData ? (
-                <span className="text-accent">{latencyText} · {trace.status === 'recent' ? 'live' : 'idle'}</span>
+                <span className="text-accent">
+                  {latencyText} · {trace.status === 'recent' ? t('tracesPanel.live') : t('tracesPanel.idle')}
+                </span>
               ) : (
-                'enabled — waiting for its first spans'
+                t('tracesPanel.enabledWaiting')
               )}
             </span>
             {codeTracingSetup && (
-              <span className="font-mono text-[12px] text-muted shrink-0">set up as {cfg.otel.language}</span>
+              <span className="font-mono text-[12px] text-muted shrink-0">
+                {t('tracesPanel.setUpAs', { language: cfg.otel.language })}
+              </span>
             )}
           </div>
         ) : (
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-mono text-[12px] text-muted">
-              <span className="text-ink-dim font-semibold">Code Tracing</span> (opt-in) — not available for hosted
-              deployments yet — Spans above already cover this service automatically
+              <span className="text-ink-dim font-semibold">{t('tracesPanel.codeTracingRowLabel')}</span>{' '}
+              {t('tracesPanel.optInSuffix')} — {t('tracesPanel.notAvailableHosted')}
             </span>
           </div>
         )}

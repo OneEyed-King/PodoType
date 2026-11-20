@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api.js';
 
 // One threshold pair, with its own "Custom for this service" checkbox.
@@ -9,6 +10,7 @@ import { api } from '../api.js';
 // existing override) so turning "Custom" on never starts from a blank/zero
 // value that would immediately misfire.
 function OverrideRow({ label, unit, warnValue, critValue, globalWarn, globalCrit, overridden, onToggle, onWarn, onCrit }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-2 text-[13px] flex-wrap py-1">
       <label className="flex items-center gap-1.5 cursor-pointer select-none w-28 shrink-0">
@@ -17,7 +19,7 @@ function OverrideRow({ label, unit, warnValue, critValue, globalWarn, globalCrit
       </label>
       {overridden ? (
         <>
-          <span className="text-muted">warn ≥</span>
+          <span className="text-muted">{t('alertsSettings.warnPrefix')}</span>
           <input
             type="number"
             min="0"
@@ -25,7 +27,7 @@ function OverrideRow({ label, unit, warnValue, critValue, globalWarn, globalCrit
             onChange={(e) => onWarn(e.target.value)}
             className="w-20 bg-panel border border-border-soft rounded px-1.5 py-0.5 font-mono text-[13px] text-ink"
           />
-          <span className="text-muted">{unit}, critical ≥</span>
+          <span className="text-muted">{unit}, {t('alertsSettings.criticalPrefix')}</span>
           <input
             type="number"
             min="0"
@@ -37,19 +39,21 @@ function OverrideRow({ label, unit, warnValue, critValue, globalWarn, globalCrit
         </>
       ) : (
         <span className="text-muted font-mono text-[13px]">
-          inherits global: warn ≥ {globalWarn ?? '—'}{unit}, critical ≥ {globalCrit ?? '—'}{unit}
+          {t('serviceAlertOverrides.inheritsGlobal', { warn: globalWarn ?? '—', crit: globalCrit ?? '—', unit })}
         </span>
       )}
     </div>
   );
 }
 
+// label/noteKey are resolved via t() at render time (see the PAIRS.map
+// below) rather than stored as literal strings in this module-level array.
 const PAIRS = [
-  { key: 'cpu', label: 'CPU', unit: '%', warnKey: 'cpuWarningPercent', critKey: 'cpuCriticalPercent' },
-  { key: 'memory', label: 'Memory %', unit: '%', warnKey: 'memWarningPercent', critKey: 'memCriticalPercent' },
+  { key: 'cpu', labelKey: 'alertsSettings.cpu', unit: '%', warnKey: 'cpuWarningPercent', critKey: 'cpuCriticalPercent' },
+  { key: 'memory', labelKey: 'serviceAlertOverrides.memoryPct', unit: '%', warnKey: 'memWarningPercent', critKey: 'memCriticalPercent' },
   {
     key: 'memoryMb',
-    label: 'Memory (absolute)',
+    labelKey: 'serviceAlertOverrides.memoryAbs',
     unit: 'MB',
     warnKey: 'memWarningMb',
     critKey: 'memCriticalMb',
@@ -58,10 +62,10 @@ const PAIRS = [
     // really means "not evaluated at all" unless a global value happens to
     // be set too, worth saying explicitly rather than showing a confusing
     // "warn ≥ —MB".
-    note: 'requires the "Memory threshold" trigger to also be on — no global default; this is the one to use for a plain "alert if this service uses more than N MB" rule.',
+    noteKey: 'serviceAlertOverrides.memoryAbsNote',
   },
-  { key: 'errorRate', label: 'Error rate', unit: '%', warnKey: 'errorRateWarningPercent', critKey: 'errorRateCriticalPercent' },
-  { key: 'latency', label: 'Latency', unit: 'ms', warnKey: 'latencyWarningMs', critKey: 'latencyCriticalMs' },
+  { key: 'errorRate', labelKey: 'alertsSettings.errorRate', unit: '%', warnKey: 'errorRateWarningPercent', critKey: 'errorRateCriticalPercent' },
+  { key: 'latency', labelKey: 'alertsSettings.latency', unit: 'ms', warnKey: 'latencyWarningMs', critKey: 'latencyCriticalMs' },
 ];
 
 // Per-service custom alert thresholds — the direct answer to "I want to set
@@ -73,6 +77,7 @@ const PAIRS = [
 // null for its two fields, which the backend treats as "go back to
 // inheriting the global value" (see server.js's own comment on that route).
 export default function ServiceAlertOverrides({ serviceName }) {
+  const { t } = useTranslation();
   const [data, setData] = useState(null); // { overrides, effective }
   const [draft, setDraft] = useState({}); // key -> { on, warn, crit } — local edit state
   const [loadError, setLoadError] = useState(null);
@@ -105,8 +110,8 @@ export default function ServiceAlertOverrides({ serviceName }) {
     };
   }, [serviceName]);
 
-  if (loadError) return <div className="text-[13px] text-down">Couldn't load alert overrides: {loadError}</div>;
-  if (!data) return <div className="text-[13px] text-muted">Loading custom alert thresholds…</div>;
+  if (loadError) return <div className="text-[13px] text-down">{t('serviceAlertOverrides.loadError', { error: loadError })}</div>;
+  if (!data) return <div className="text-[13px] text-muted">{t('serviceAlertOverrides.loading')}</div>;
 
   function toggle(key, on) {
     setDraft((d) => {
@@ -155,7 +160,7 @@ export default function ServiceAlertOverrides({ serviceName }) {
       {PAIRS.map((p) => (
         <div key={p.key}>
           <OverrideRow
-            label={p.label}
+            label={t(p.labelKey)}
             unit={p.unit}
             warnValue={draft[p.key]?.warn ?? ''}
             critValue={draft[p.key]?.crit ?? ''}
@@ -166,7 +171,7 @@ export default function ServiceAlertOverrides({ serviceName }) {
             onWarn={(v) => setField(p.key, 'warn', v)}
             onCrit={(v) => setField(p.key, 'crit', v)}
           />
-          {p.note && draft[p.key]?.on && <div className="text-[12px] text-muted ml-[7.5rem] -mt-0.5 mb-0.5">{p.note}</div>}
+          {p.noteKey && draft[p.key]?.on && <div className="text-[12px] text-muted ml-[7.5rem] -mt-0.5 mb-0.5">{t(p.noteKey)}</div>}
         </div>
       ))}
       <div className="flex items-center gap-2 pt-1.5">
@@ -176,9 +181,9 @@ export default function ServiceAlertOverrides({ serviceName }) {
           disabled={saving}
           className="text-[13px] font-semibold text-[#f5f7fc] bg-accent hover:brightness-110 rounded-md px-3 py-1 disabled:opacity-50"
         >
-          {saving ? 'Saving…' : 'Save custom thresholds'}
+          {saving ? t('alertsSettings.saving') : t('serviceAlertOverrides.saveBtn')}
         </button>
-        {saved && <span className="text-[13px] text-up">✓ saved</span>}
+        {saved && <span className="text-[13px] text-up">{t('serviceAlertOverrides.saved')}</span>}
         {saveError && <span className="text-[13px] text-down">{saveError}</span>}
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 // The relative-range list every mainstream APM/observability tool
 // converges on (Grafana's quick ranges, Datadog's timeframe selector,
@@ -8,6 +9,10 @@ import { useEffect, useRef, useState } from 'react';
 // minute-level precision stops mattering. What this app had before jumped
 // straight from "1 hour" to "24 hours" to "7 days" with nothing in
 // between, which is the exact gap being fixed here.
+//
+// Labels (5m, 1h, 7d, ...) stay as literal unit abbreviations in every
+// language, same convention as this app's other code/unit-shaped content
+// — they read the same way to a German or Japanese user as they do here.
 export const TIME_RANGE_OPTIONS = [
   { label: '5m', minutes: 5 },
   { label: '15m', minutes: 15 },
@@ -38,7 +43,9 @@ export function formatRangeMinutes(minutes) {
 // single control here. Selecting a preset applies it immediately — a
 // relative range is unambiguous, so there's nothing to "Apply" separately
 // the way a custom absolute range would need.
-export default function TimeRangePicker({ minutes, onChange, allowLive = true, liveLabel = 'Live' }) {
+export default function TimeRangePicker({ minutes, onChange, allowLive = true, liveLabel }) {
+  const { t } = useTranslation();
+  const resolvedLiveLabel = liveLabel ?? t('timeRangePicker.live');
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -58,7 +65,7 @@ export default function TimeRangePicker({ minutes, onChange, allowLive = true, l
     };
   }, [open]);
 
-  const currentLabel = minutes === null ? liveLabel : formatRangeMinutes(minutes);
+  const currentLabel = minutes === null ? resolvedLiveLabel : formatRangeMinutes(minutes);
 
   function pick(value) {
     onChange(value);
@@ -75,7 +82,7 @@ export default function TimeRangePicker({ minutes, onChange, allowLive = true, l
         // small standalone accent pill, which read as a different kind of
         // control instead of just another button in the row.
         className="inline-flex items-center gap-1.5 text-[13px] font-semibold rounded-md px-3.5 py-1.5 border text-ink bg-panel-raised border-border hover:border-accent hover:text-accent"
-        title="Change time range"
+        title={t('timeRangePicker.changeRange')}
       >
         {currentLabel}
         <span className="text-muted">▾</span>
@@ -91,7 +98,7 @@ export default function TimeRangePicker({ minutes, onChange, allowLive = true, l
                 minutes === null ? 'text-accent font-semibold' : 'text-ink-dim'
               }`}
             >
-              {liveLabel}
+              {resolvedLiveLabel}
             </button>
           )}
           {TIME_RANGE_OPTIONS.map((o) => (
@@ -103,7 +110,7 @@ export default function TimeRangePicker({ minutes, onChange, allowLive = true, l
                 minutes === o.minutes ? 'text-accent font-semibold' : 'text-ink-dim'
               }`}
             >
-              Last {o.label}
+              {t('timeRangePicker.lastPrefix', { label: o.label })}
             </button>
           ))}
         </div>

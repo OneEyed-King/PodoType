@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api.js';
 
 // A plain-language, template-built sentence — NOT an LLM call. Every
@@ -8,9 +9,16 @@ import { api } from '../api.js';
 // four stat tiles themselves. See the "non-AI summary" request this was
 // built from — deliberately no model call, no network cost beyond the
 // alerts poll every other Overview widget already makes.
+//
+// Each clause is its own i18next key with _one/_other (and _few/_many for
+// Russian) plural forms, picked by whichever count is grammatically the
+// subject of that clause — not string-concatenated word fragments, which
+// don't hold up across languages with different pluralization or word
+// order.
 const POLL_MS = 5000;
 
 export default function OverviewSummary({ services, rangeMinutes, rangeLabel }) {
+  const { t } = useTranslation();
   const [alerts, setAlerts] = useState(null);
 
   useEffect(() => {
@@ -47,28 +55,25 @@ export default function OverviewSummary({ services, rangeMinutes, rangeLabel }) 
   const parts = [];
 
   if (watched === 0) {
-    parts.push("You're not watching any services yet.");
+    parts.push(t('overviewSummary.noneWatched'));
   } else if (down > 0) {
-    parts.push(
-      `${down} of ${watched} watched service${watched === 1 ? '' : 's'} ${down === 1 ? 'is' : 'are'} currently down or degraded.`
-    );
+    parts.push(t('overviewSummary.someDown', { count: down, down, watched }));
   } else if (unknown > 0) {
-    parts.push(`All ${healthy} reporting services are healthy — ${unknown} more ${unknown === 1 ? "hasn't" : "haven't"} confirmed health yet.`);
+    parts.push(t('overviewSummary.allHealthyUnknown', { count: unknown, healthy, unknown }));
   } else {
-    parts.push(`All ${watched} watched service${watched === 1 ? '' : 's'} ${watched === 1 ? 'is' : 'are'} healthy.`);
+    parts.push(t('overviewSummary.allHealthy', { count: watched, watched }));
   }
 
   if (activeCount !== null) {
     if (activeCount === 0) {
       parts.push(
         resolvedInRange
-          ? `No active incidents — ${resolvedInRange} resolved in the last ${rangeLabel}.`
-          : `No incidents in the last ${rangeLabel}.`
+          ? t('overviewSummary.noActiveResolved', { count: resolvedInRange, range: rangeLabel })
+          : t('overviewSummary.noIncidentsRange', { range: rangeLabel })
       );
     } else {
-      parts.push(
-        `${activeCount} active incident${activeCount === 1 ? '' : 's'}${criticalCount > 0 ? ` (${criticalCount} critical)` : ''} right now.`
-      );
+      const criticalSuffix = criticalCount > 0 ? t('overviewSummary.criticalSuffix', { count: criticalCount }) : '';
+      parts.push(t('overviewSummary.activeIncidents', { count: activeCount, criticalSuffix }));
     }
   }
 

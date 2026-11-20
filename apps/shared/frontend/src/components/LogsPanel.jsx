@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import InfoDot from './InfoDot.jsx';
 import { api } from '../api.js';
 
@@ -20,6 +21,7 @@ const LEVEL_TEXT = { fatal: 'text-down', error: 'text-down', warning: 'text-slow
 // each one happens". Fetched on demand (only while this sub-view is open),
 // same as the live tail only streaming while expanded.
 function ClusteredLogs({ serviceName }) {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
@@ -47,14 +49,14 @@ function ClusteredLogs({ serviceName }) {
   }, [serviceName]);
 
   if (error) return <div className="text-[13px] text-down">{error}</div>;
-  if (!data) return <div className="text-[13px] text-muted">scanning recent logs…</div>;
-  if (data.clusters.length === 0) return <div className="text-[13px] text-muted">no log lines yet</div>;
+  if (!data) return <div className="text-[13px] text-muted">{t('logsPanel.scanning')}</div>;
+  if (data.clusters.length === 0) return <div className="text-[13px] text-muted">{t('logsPanel.noLogLinesYet')}</div>;
 
   return (
     <div className="flex flex-col gap-1">
       <div className="text-[11px] text-muted mb-0.5">
-        {data.clusterCount} distinct pattern{data.clusterCount === 1 ? '' : 's'} across the last {data.linesExamined} lines
-        {data.truncated ? ` (showing the ${data.clusters.length} most frequent)` : ''}
+        {t('logsPanel.clusterSummary', { count: data.clusterCount, lines: data.linesExamined })}
+        {data.truncated ? t('logsPanel.showingMostFrequent', { shown: data.clusters.length }) : ''}
       </div>
       <div className="max-h-64 overflow-y-auto flex flex-col gap-1">
         {data.clusters.map((c) => (
@@ -67,7 +69,7 @@ function ClusteredLogs({ serviceName }) {
               </span>
               {c.lastTs && (
                 <span className="font-mono text-[11px] text-muted ml-auto shrink-0">
-                  last {new Date(c.lastTs).toLocaleTimeString()}
+                  {t('logsPanel.lastPrefix', { time: new Date(c.lastTs).toLocaleTimeString() })}
                 </span>
               )}
             </div>
@@ -86,6 +88,10 @@ function ClusteredLogs({ serviceName }) {
 // offering "30 days" when only 2 days are actually retained would be
 // exactly the "looks complete, silently isn't" problem this feature was
 // built to avoid for the live-tail-based views.
+//
+// Labels (1h, 4h, 1d, ...) stay as literal unit abbreviations in every
+// language, same convention as TimeRangePicker's own presets — they read
+// the same way to a German or Japanese user as they do here.
 const LOG_HISTORY_RANGE_PRESETS = [
   { label: '1h', hours: 1 },
   { label: '4h', hours: 4 },
@@ -109,6 +115,7 @@ const LOG_HISTORY_RANGE_PRESETS = [
 // raw lines — but never a space SAVINGS) — so this renders the opt-in
 // prompt with that trade-off spelled out until it's turned on.
 function HistoryLogs({ serviceName }) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState(null); // 'loading' | 'off' | 'on' | 'toggling'
   const [retentionHours, setRetentionHours] = useState(null);
   const [rangeHours, setRangeHours] = useState(24);
@@ -178,27 +185,20 @@ function HistoryLogs({ serviceName }) {
   }
 
   if (status === 'loading' || status === null) {
-    return <div className="text-[13px] text-muted">checking log storage status…</div>;
+    return <div className="text-[13px] text-muted">{t('logsPanel.checkingStorageStatus')}</div>;
   }
 
   if (status === 'off' || status === 'toggling') {
     return (
       <div className="flex flex-col gap-2">
-        <div className="text-[13px] text-ink-dim">
-          Off by default. This tab reads from Docker's live logs directly, same as Live/Clustered — nothing about
-          PodoType stores log data anywhere. Turning this on for <span className="font-semibold text-ink">{serviceName}</span>{' '}
-          starts a SECOND, small copy — clustered patterns, not raw lines — kept independently in ClickHouse so
-          history survives a restart and time-range search actually means something. This is genuinely{' '}
-          <span className="font-semibold text-ink">additional disk usage on top of</span> whatever Docker's own logs
-          already use, not a replacement for them or a way to reduce it.
-        </div>
+        <div className="text-[13px] text-ink-dim">{t('logsPanel.offDesc', { service: serviceName })}</div>
         <button
           type="button"
           onClick={enable}
           disabled={status === 'toggling'}
           className="self-start text-[13px] font-semibold text-[#f5f7fc] bg-accent hover:brightness-110 rounded-md px-3 py-1.5 disabled:opacity-50"
         >
-          {status === 'toggling' ? 'Enabling…' : `Enable log storage for ${serviceName}`}
+          {status === 'toggling' ? t('logsPanel.enabling') : t('logsPanel.enableFor', { service: serviceName })}
         </button>
         {error && <div className="text-[12px] text-down">{error}</div>}
       </div>
@@ -211,7 +211,7 @@ function HistoryLogs({ serviceName }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-[11px] text-muted">Storing patterns for this service.</span>
+        <span className="text-[11px] text-muted">{t('logsPanel.storingPatterns')}</span>
         <select
           value={rangeHours}
           onChange={(e) => setRangeHours(Number(e.target.value))}
@@ -219,25 +219,24 @@ function HistoryLogs({ serviceName }) {
         >
           {options.map((o) => (
             <option key={o.hours} value={o.hours}>
-              last {o.label}
+              {t('logsPanel.lastRangeLabel', { label: o.label })}
             </option>
           ))}
         </select>
         <button type="button" onClick={disable} className="link-btn text-[11px] text-muted hover:text-down ml-auto">
-          Disable
+          {t('logsPanel.disable')}
         </button>
       </div>
 
       {error && <div className="text-[13px] text-down">{error}</div>}
-      {!error && !data && <div className="text-[13px] text-muted">loading stored history…</div>}
+      {!error && !data && <div className="text-[13px] text-muted">{t('logsPanel.loadingStoredHistory')}</div>}
       {data && data.hoursUsed !== null && data.hoursUsed < data.hoursRequested && (
         <div className="text-[11px] text-slow">
-          Showing the last {data.hoursUsed}h — that's your current log retention, shorter than the {data.hoursRequested}h
-          range you picked.
+          {t('logsPanel.shorterRetention', { hoursUsed: data.hoursUsed, hoursRequested: data.hoursRequested })}
         </div>
       )}
       {data && data.clusters && data.clusters.length === 0 && (
-        <div className="text-[13px] text-muted">no stored patterns in this window yet</div>
+        <div className="text-[13px] text-muted">{t('logsPanel.noStoredPatterns')}</div>
       )}
       {data && data.clusters && data.clusters.length > 0 && (
         <div className="max-h-64 overflow-y-auto flex flex-col gap-1">
@@ -251,7 +250,7 @@ function HistoryLogs({ serviceName }) {
                 </span>
                 {c.lastTs && (
                   <span className="font-mono text-[11px] text-muted ml-auto shrink-0">
-                    last {new Date(`${c.lastTs}Z`).toLocaleString()}
+                    {t('logsPanel.lastPrefix', { time: new Date(`${c.lastTs}Z`).toLocaleString() })}
                   </span>
                 )}
               </div>
@@ -290,6 +289,7 @@ function HistoryLogs({ serviceName }) {
 // labeled condition instead of a second bug report for the same root
 // cause as the disk-full incident itself.
 export default function LogsPanel({ serviceName, storageStatus }) {
+  const { t } = useTranslation();
   // Defaults OPEN. This panel's collapse/expand toggle predates the
   // horizontal-tabs redesign (see WatchedRow's TABS) — back when every
   // panel sat in one long vertical stack, collapsed-by-default kept the
@@ -413,11 +413,11 @@ export default function LogsPanel({ serviceName, storageStatus }) {
     <div className="bg-panel-recessed border border-border-soft rounded-md overflow-hidden">
       <div className="flex items-center justify-between px-2.5 py-2 border-b border-border-soft text-[12px] font-bold uppercase tracking-wider text-muted">
         <span className="inline-flex items-center gap-1.5">
-          Logs
-          <InfoDot title="Live tail of this container's own stdout/stderr, unfiltered — new lines appear as they're written, the same as `docker logs -f` or Grafana's Live view. Clustered groups a larger recent tail into recurring line shapes instead, so a noisy repeating message doesn't bury anything different. Only fetches/streams while this section is open." />
+          {t('logsPanel.title')}
+          <InfoDot title={t('logsPanel.tooltip')} />
           {expanded && mode === 'live' && (
             <span className={`normal-case font-normal text-[11px] ${connected ? 'text-accent' : 'text-muted'}`}>
-              {connected ? '● live' : 'connecting…'}
+              {connected ? t('logsPanel.live') : t('logsPanel.connecting')}
             </span>
           )}
         </span>
@@ -429,27 +429,27 @@ export default function LogsPanel({ serviceName, storageStatus }) {
                 onClick={() => setMode('live')}
                 className={`px-2 py-0.5 ${mode === 'live' ? 'bg-accent/15 text-accent' : 'text-muted hover:text-ink'}`}
               >
-                Live
+                {t('logsPanel.tabLive')}
               </button>
               <button
                 type="button"
                 onClick={() => setMode('clusters')}
                 className={`px-2 py-0.5 ${mode === 'clusters' ? 'bg-accent/15 text-accent' : 'text-muted hover:text-ink'}`}
               >
-                Clustered
+                {t('logsPanel.tabClustered')}
               </button>
               <button
                 type="button"
                 onClick={() => setMode('history')}
                 className={`px-2 py-0.5 ${mode === 'history' ? 'bg-accent/15 text-accent' : 'text-muted hover:text-ink'}`}
-                title="Stored pattern history — opt-in, see the History tab itself for the trade-off"
+                title={t('logsPanel.tabHistoryTooltip')}
               >
-                History
+                {t('logsPanel.tabHistory')}
               </button>
             </div>
           )}
           <button type="button" onClick={() => setExpanded((v) => !v)} className="link-btn text-accent text-[12px]">
-            {expanded ? '⌃ Hide' : 'View ⌄'}
+            {expanded ? t('logsPanel.hide') : t('logsPanel.view')}
           </button>
         </div>
       </div>
@@ -469,10 +469,7 @@ export default function LogsPanel({ serviceName, storageStatus }) {
       {expanded && mode === 'live' && (
         <div className="px-2.5 py-2">
           {storageStatus === 'critical' && (
-            <div className="text-[12px] text-slow mb-1.5">
-              Disk space is critical — Docker can't persist new log lines right now, so this may look frozen even
-              though the stream itself is connected. Not a bug here; see the Disk space banner above.
-            </div>
+            <div className="text-[12px] text-slow mb-1.5">{t('logsPanel.diskCriticalWarning')}</div>
           )}
 
           <div className="flex items-center gap-1.5 mb-1.5">
@@ -480,7 +477,7 @@ export default function LogsPanel({ serviceName, storageStatus }) {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Filter this buffer…"
+              placeholder={t('logsPanel.filterPlaceholder')}
               className="flex-1 min-w-0 bg-panel border border-border-soft rounded px-2 py-1 font-mono text-[12px] text-ink"
             />
             {query.trim() && (
@@ -489,22 +486,22 @@ export default function LogsPanel({ serviceName, storageStatus }) {
                 onClick={runDeepSearch}
                 disabled={Boolean(deepSearch && deepSearch.loading)}
                 className="shrink-0 text-[12px] font-semibold text-ink bg-panel-raised border border-border hover:border-accent hover:text-accent rounded px-2 py-1 disabled:opacity-50"
-                title="This box only filters what's already arrived since you opened this tab — search a bigger recent history on the container itself instead"
+                title={t('logsPanel.searchOlderTooltip')}
               >
-                {deepSearch && deepSearch.loading ? 'Searching…' : 'Search older logs too'}
+                {deepSearch && deepSearch.loading ? t('logsPanel.searching') : t('logsPanel.searchOlderToo')}
               </button>
             )}
           </div>
 
           {error && <div className="text-[13px] text-down">{error}</div>}
-          {!error && lines.length === 0 && <div className="text-[13px] text-muted">waiting for log lines…</div>}
+          {!error && lines.length === 0 && <div className="text-[13px] text-muted">{t('logsPanel.waitingForLines')}</div>}
           {lines.length > 0 && (
             <div
               ref={boxRef}
               className="max-h-64 overflow-y-auto bg-panel rounded border border-border-soft px-2 py-1.5 flex flex-col gap-0.5"
             >
               {filteredLines.length === 0 && (
-                <div className="text-[12px] text-muted">no lines in the current buffer match "{query}"</div>
+                <div className="text-[12px] text-muted">{t('logsPanel.noMatchInBuffer', { query })}</div>
               )}
               {[...filteredLines].reverse().map((l, i) => (
                 <div key={`${l.ts || ''}-${i}`} className="font-mono text-[12px] leading-snug [overflow-wrap:anywhere] flex gap-2">
@@ -517,14 +514,13 @@ export default function LogsPanel({ serviceName, storageStatus }) {
 
           {deepSearch && (
             <div className="mt-2 border-t border-border-soft pt-2">
-              {deepSearch.loading && <div className="text-[12px] text-muted">searching recent container logs…</div>}
+              {deepSearch.loading && <div className="text-[12px] text-muted">{t('logsPanel.scanning')}</div>}
               {deepSearch.error && <div className="text-[13px] text-down">{deepSearch.error}</div>}
               {deepSearch.result && (
                 <>
                   <div className="text-[11px] text-muted mb-1">
-                    {deepSearch.result.matchCount} match{deepSearch.result.matchCount === 1 ? '' : 'es'} across the last{' '}
-                    {deepSearch.result.linesExamined} lines
-                    {deepSearch.result.truncated ? ` (showing the ${deepSearch.result.matches.length} most recent)` : ''}
+                    {t('logsPanel.deepSearchSummary', { count: deepSearch.result.matchCount, lines: deepSearch.result.linesExamined })}
+                    {deepSearch.result.truncated ? t('logsPanel.showingMostRecent', { shown: deepSearch.result.matches.length }) : ''}
                   </div>
                   {deepSearch.result.matches.length > 0 && (
                     <div className="max-h-56 overflow-y-auto bg-panel rounded border border-border-soft px-2 py-1.5 flex flex-col gap-0.5">

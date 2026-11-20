@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import ChartPanel from './charts/ChartPanel.jsx';
 import InfoDot from './InfoDot.jsx';
 import TimeRangePicker, { formatRangeMinutes } from './TimeRangePicker.jsx';
@@ -26,6 +27,7 @@ function formatWhen(iso) {
 }
 
 export default function MetricsHistoryRange({ serviceName }) {
+  const { t } = useTranslation();
   const [rangeMinutes, setRangeMinutes] = useState(DEFAULT_RANGE_MINUTES);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -74,13 +76,13 @@ export default function MetricsHistoryRange({ serviceName }) {
     <div>
       <div className="flex items-center justify-between gap-2 mb-2">
         <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-dim">
-          History — last {formatRangeMinutes(rangeMinutes)}
-          <InfoDot title="Container health and request-rate history for a past window, from 5 minutes to 7 days back — instead of only what's live right now. Bounded by your account's own data retention setting." />
+          {t('metricsHistory.historyLast', { range: formatRangeMinutes(rangeMinutes) })}
+          <InfoDot title={t('metricsHistory.tooltip')} />
         </span>
         <div className="flex items-center gap-2 shrink-0">
           <TimeRangePicker minutes={rangeMinutes} onChange={selectRange} allowLive={false} />
           <button type="button" className="link-btn text-[12px]" onClick={() => load(rangeMinutes)} disabled={loading}>
-            {loading ? 'loading…' : '↻ refresh'}
+            {loading ? t('metricsHistory.loading') : t('metricsHistory.refresh')}
           </button>
         </div>
       </div>
@@ -93,13 +95,13 @@ export default function MetricsHistoryRange({ serviceName }) {
             {formatWhen(data.since)} → {formatWhen(data.until)}
           </div>
           {data.points.length === 0 && reqPoints.length === 0 && (
-            <div className="text-[13px] text-muted">No data retained for this window.</div>
+            <div className="text-[13px] text-muted">{t('metricsHistory.noData')}</div>
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {data.points.length > 0 && (
               <>
                 <ChartPanel
-                  label="CPU %"
+                  label={t('metricsHistory.cpu')}
                   points={cpuPoints}
                   color="rgb(var(--color-accent))"
                   currentText={lastValue(cpuPoints) !== undefined ? `${lastValue(cpuPoints).toFixed(1)}%` : '—'}
@@ -108,7 +110,7 @@ export default function MetricsHistoryRange({ serviceName }) {
                   height={180}
                 />
                 <ChartPanel
-                  label="Memory %"
+                  label={t('metricsHistory.memory')}
                   points={memPoints}
                   color="rgb(var(--color-ink-dim))"
                   currentText={lastValue(memPoints) !== undefined ? `${lastValue(memPoints).toFixed(1)}%` : '—'}
@@ -121,7 +123,7 @@ export default function MetricsHistoryRange({ serviceName }) {
             {reqPoints.length > 0 && (
               <>
                 <ChartPanel
-                  label="Requests/sec"
+                  label={t('metricsHistory.requestsPerSec')}
                   points={reqPoints}
                   color="rgb(var(--color-accent))"
                   currentText={lastValue(reqPoints) !== undefined ? lastValue(reqPoints).toFixed(1) : '—'}
@@ -129,7 +131,7 @@ export default function MetricsHistoryRange({ serviceName }) {
                   height={180}
                 />
                 <ChartPanel
-                  label="Error rate %"
+                  label={t('metricsHistory.errorRatePct')}
                   points={errPoints}
                   color={lastValue(errPoints) > 0 ? 'rgb(var(--color-down))' : 'rgb(var(--color-accent))'}
                   currentText={lastValue(errPoints) !== undefined ? `${lastValue(errPoints).toFixed(1)}%` : '—'}

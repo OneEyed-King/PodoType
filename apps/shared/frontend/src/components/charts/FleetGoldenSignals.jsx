@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import ChartPanel from './ChartPanel.jsx';
 import MultiSeriesChartPanel from './MultiSeriesChartPanel.jsx';
 import { api } from '../../api.js';
@@ -55,6 +56,7 @@ function safeKey(name) {
 }
 
 export default function FleetGoldenSignals({ services }) {
+  const { t } = useTranslation();
   const [perService, setPerService] = useState(new Map());
 
   useEffect(() => {
@@ -100,8 +102,9 @@ export default function FleetGoldenSignals({ services }) {
   const REQ_SERIES = namedSlots.map((name, i) => ({ key: safeKey(name), label: name, color: SERIES_COLORS[i] }));
   const LAT_SERIES = [...REQ_SERIES];
   if (hasOverflow) {
-    REQ_SERIES.push({ key: 's__other', label: `Other (${foldedNames.size})`, color: OTHER_COLOR });
-    LAT_SERIES.push({ key: 's__other', label: `Other (${foldedNames.size})`, color: OTHER_COLOR });
+    const otherLabel = t('fleetGoldenSignals.otherLabel', { count: foldedNames.size });
+    REQ_SERIES.push({ key: 's__other', label: otherLabel, color: OTHER_COLOR });
+    LAT_SERIES.push({ key: 's__other', label: otherLabel, color: OTHER_COLOR });
   }
 
   // bucketT -> row object carrying every series key, plus the fleet-total
@@ -166,17 +169,17 @@ export default function FleetGoldenSignals({ services }) {
     <div className="mb-5">
       <div className="flex gap-3 flex-wrap">
         <MultiSeriesChartPanel
-          label="Fleet requests/sec — by service"
+          label={t('fleetGoldenSignals.fleetRequestsLabel')}
           data={reqRows}
           series={REQ_SERIES}
           mode="stackedArea"
           valueFormatter={(v) => v.toFixed(1)}
           height={260}
-          infoTitle="Every watched service's own request rate, stacked — the stack height at any point is the fleet total."
-          emptyText="No request traffic observed yet across watched services."
+          infoTitle={t('fleetGoldenSignals.fleetRequestsInfo')}
+          emptyText={t('fleetGoldenSignals.noTrafficYet')}
         />
         <ChartPanel
-          label="Fleet error rate"
+          label={t('fleetGoldenSignals.fleetErrorRateLabel')}
           points={errPoints}
           color={lastErr > 0 ? 'rgb(var(--color-down))' : 'rgb(var(--color-accent))'}
           tone={lastErr > 0 ? 'text-down' : undefined}
@@ -184,19 +187,19 @@ export default function FleetGoldenSignals({ services }) {
           unit="%"
           valueFormatter={(v) => `${v.toFixed(0)}%`}
           height={260}
-          infoTitle="Request-weighted average error rate across every watched service."
-          emptyText="No request traffic observed yet across watched services."
+          infoTitle={t('fleetGoldenSignals.fleetErrorRateInfo')}
+          emptyText={t('fleetGoldenSignals.noTrafficYet')}
         />
         <MultiSeriesChartPanel
-          label="p95 latency — by service"
+          label={t('fleetGoldenSignals.p95LatencyLabel')}
           data={latRows}
           series={LAT_SERIES}
           mode="lines"
           unit="ms"
           valueFormatter={(v) => `${Math.round(v)}ms`}
           height={260}
-          infoTitle="Each watched service's own p95 latency — which one is actually dragging, not just a single worst-case number."
-          emptyText="No trace data yet across watched services."
+          infoTitle={t('fleetGoldenSignals.p95LatencyInfo')}
+          emptyText={t('fleetGoldenSignals.noTraceDataYet')}
         />
       </div>
     </div>
