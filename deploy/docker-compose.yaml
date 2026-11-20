@@ -79,6 +79,12 @@ services:
       CLICKHOUSE_URL: "http://clickhouse:8123"
       CLICKHOUSE_DATABASE: "otel"
       ENGINE_API_KEY: "${PODOTYPE_ENGINE_API_KEY:-}"
+      # Basic-auth gate in front of the whole dashboard (UI + API) — ON by
+      # default with admin/admin, so set real values in .env (or as
+      # environment variables ahead of the curl, same as the overrides
+      # described above) before exposing this beyond a trusted network.
+      BASIC_AUTH_USER: "${PODOTYPE_BASIC_AUTH_USER:-admin}"
+      BASIC_AUTH_PASSWORD: "${PODOTYPE_BASIC_AUTH_PASSWORD:-admin}"
       # beyla (the background process this container also runs) reads
       # these same env vars — see config.yml/Dockerfile. Endpoint is
       # localhost now, not a separate container's service name.

@@ -3442,6 +3442,56 @@ function tcpCheck(target, timeoutMs) {
 const app = express();
 app.use(express.json());
 
+// ---- Basic auth (UI + API) ---------------------------------------------
+//
+// Self-hosted has no accounts system — this is a single shared
+// username/password gate in front of the whole dashboard (static UI and
+// /api/* alike), not multi-user auth. ON by default with admin/admin so a
+// fresh install isn't wide open the moment the port is reachable; override
+// via .env (PODOTYPE_BASIC_AUTH_USER / PODOTYPE_BASIC_AUTH_PASSWORD, see
+// .env.example and docker-compose.yml). Deliberately does NOT cover the
+// OTLP ingest port (startOtlpIngestServer, below, on its own http.Server) —
+// that's where Beyla and OTel-enabled services SEND traces to, not
+// something a person logs into, and those senders don't carry credentials.
+// Comparisons are constant-time (crypto.timingSafeEqual) so a wrong guess
+// can't be narrowed down by response timing.
+const BASIC_AUTH_USER = process.env.BASIC_AUTH_USER || 'admin';
+const BASIC_AUTH_PASSWORD = process.env.BASIC_AUTH_PASSWORD || 'admin';
+
+function timingSafeStringEqual(a, b) {
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+  if (bufA.length !== bufB.length) {
+    // Compare bufA against itself so a length mismatch still costs a real
+    // comparison rather than returning instantly.
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+function requireBasicAuth(req, res, next) {
+  const header = req.get('authorization') || '';
+  if (header.startsWith('Basic ')) {
+    let decoded = '';
+    try {
+      decoded = Buffer.from(header.slice('Basic '.length), 'base64').toString('utf8');
+    } catch {
+      decoded = '';
+    }
+    const sep = decoded.indexOf(':');
+    const user = sep === -1 ? decoded : decoded.slice(0, sep);
+    const pass = sep === -1 ? '' : decoded.slice(sep + 1);
+    if (timingSafeStringEqual(user, BASIC_AUTH_USER) && timingSafeStringEqual(pass, BASIC_AUTH_PASSWORD)) {
+      return next();
+    }
+  }
+  res.set('WWW-Authenticate', 'Basic realm="PodoType", charset="UTF-8"');
+  res.status(401).send('Authentication required');
+}
+
+app.use(requireBasicAuth);
+
 // ---- Static UI (self-hosted combined container only) ------------------
 // The self-hosted product combines what used to be three containers
 // (engine, web, beyla) into one — see docker-entrypoint.sh and

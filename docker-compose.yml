@@ -183,6 +183,11 @@ services:
       # empty) for self-hosted; set it in .env only if this ever needs to
       # be reachable beyond one trusted Docker network.
       ENGINE_API_KEY: "${PODOTYPE_ENGINE_API_KEY:-}"
+      # Basic-auth gate in front of the whole dashboard (UI + API) — ON by
+      # default with admin/admin, so change these in .env before exposing
+      # this beyond a trusted network. See server.js's requireBasicAuth.
+      BASIC_AUTH_USER: "${PODOTYPE_BASIC_AUTH_USER:-admin}"
+      BASIC_AUTH_PASSWORD: "${PODOTYPE_BASIC_AUTH_PASSWORD:-admin}"
       # beyla (the background process this container also runs — see
       # docker-entrypoint.sh) reads these same env vars. Endpoint is
       # localhost now, not a separate container's service name, since

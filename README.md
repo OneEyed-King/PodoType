@@ -36,6 +36,9 @@ Elastic License 2.0.
 - **Unlimited, on your own infrastructure.** No container cap, no feature
   gate, self-hosted under the Elastic License 2.0. Your telemetry data
   never leaves your network.
+- **Login on by default.** HTTP Basic Auth in front of the whole
+  dashboard, `admin`/`admin` out of the box — change it in `.env` before
+  exposing this beyond a trusted network. See Login below.
 
 ## Requirements
 
@@ -59,7 +62,8 @@ curl -fsS https://raw.githubusercontent.com/OneEyed-King/PodoType/main/deploy/do
 
 Wait about 10–15 seconds for ClickHouse's healthcheck to pass (the `app`
 container waits for it before starting), then open
-`http://localhost:8973`.
+`http://localhost:8973` — your browser will prompt for a username and
+password (default `admin` / `admin`; see Login below to change it).
 
 **What you should see:** every container currently running on the host,
 listed with its up/down status — that part works immediately, with
@@ -91,8 +95,70 @@ in named Docker volumes; add `-v` to the command above to wipe it too.
 
 Copy `.env.example` to `.env` next to wherever you run the install
 command from, and edit it — every setting is optional with a sane
-default. Covers the published ports and the (off by default) API key; see
-the file itself for what each one does.
+default. Covers the published ports, login, and the (off by default) API
+key; see the file itself for what each one does.
+
+### Login
+
+The dashboard is protected by HTTP Basic Auth out of the box — a browser
+prompt asks for a username and password before showing anything, UI and
+API alike. Default is `admin` / `admin`, so the first thing worth doing
+on a real install is changing it in `.env`:
+
+```bash
+# .env
+PODOTYPE_BASIC_AUTH_USER=someone
+PODOTYPE_BASIC_AUTH_PASSWORD=a-real-password
+```
+
+then `docker compose up -d` to apply it (no rebuild needed). This is one
+shared login for the whole instance, not per-user accounts. It does
+**not** cover the OTLP port (`4318`) — that's where Beyla and any
+OTel-enabled services send trace data to, not something a person visits,
+and those senders don't carry credentials.
+
+### Routing / reverse proxy
+
+PodoType itself just listens on plain HTTP (`PODOTYPE_UI_PORT`, default
+`8973`) — if you want it on a real domain with HTTPS, put a reverse proxy
+in front of it on the same host. It's a single backend on one port, so
+any proxy works the same way; two common ones:
+
+**Caddy** (automatic HTTPS, simplest option — put this in a `Caddyfile`):
+
+```
+podotype.yourdomain.com {
+    reverse_proxy localhost:8973
+}
+```
+
+**nginx:**
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name podotype.yourdomain.com;
+
+    # ssl_certificate / ssl_certificate_key — e.g. from certbot
+
+    location / {
+        proxy_pass http://127.0.0.1:8973;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Either way, keep Basic Auth turned on (it's on by default) even behind a
+proxy with its own TLS — the proxy terminates HTTPS for the connection
+coming in, it doesn't replace login on its own. If the proxy and
+PodoType run in the same `docker compose` project, route to the service
+name (`app`) and container port (`8080`) instead of `localhost`/`8973`;
+if the proxy runs separately (e.g. a host-level nginx/Caddy you already
+run for other sites), `localhost:8973` is correct as shown above, since
+`PODOTYPE_UI_PORT` is published to the host.
 
 ## Local development
 
