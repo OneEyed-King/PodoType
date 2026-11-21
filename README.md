@@ -1,5 +1,7 @@
 # PodoType (self-hosted)
 
+[**podotype.dev**](https://www.podotype.dev/) — project site, screenshots, and install instructions.
+
 Zero-instrumentation observability, built specifically for your Docker
 Compose stack — traces, RED metrics, logs, and container health,
 auto-captured via eBPF (Beyla), with no code changes to your own services.
