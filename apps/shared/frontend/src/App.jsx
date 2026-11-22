@@ -10,6 +10,10 @@ import AttentionBanner from './components/AttentionBanner.jsx';
 import AlertsPanel from './components/AlertsPanel.jsx';
 import RetentionPanel from './components/RetentionPanel.jsx';
 import LogRetentionPanel from './components/LogRetentionPanel.jsx';
+import PollIntervalsPanel from './components/PollIntervalsPanel.jsx';
+import AppearancePanel from './components/AppearancePanel.jsx';
+import ToastBanner from './components/ToastBanner.jsx';
+import HealthCheckModal from './components/HealthCheckModal.jsx';
 import OtelInstructions from './components/OtelInstructions.jsx';
 import BulkOtelSetup from './components/BulkOtelSetup.jsx';
 import ServiceMap from './components/ServiceMap.jsx';
@@ -89,6 +93,13 @@ export default function App() {
   const [otelLanguages, setOtelLanguages] = useState(['java']);
   const [updatedText, setUpdatedText] = useState('');
   const [manualAddValue, setManualAddValue] = useState('');
+  // Replaces window.alert() for simple error/info messages — see
+  // ToastBanner.jsx's own comment for why. null = nothing showing.
+  const [toast, setToast] = useState(null);
+  // Drives HealthCheckModal — replaces the old window.prompt() flow in
+  // setupCheck below. null = modal closed; set = { name, existing,
+  // refreshFn } for whichever service's "set check" button was clicked.
+  const [checkModal, setCheckModal] = useState(null);
 
   // Two-step flow: pick services, then land on a page that only shows what
   // you picked. "monitor" is the steady-state home once anything is
@@ -482,29 +493,22 @@ export default function App() {
   // resolves to hostedApi.setCheck for the hosted build), so hosted reuses
   // this exact function rather than writing its own copy, passing
   // hostedDiscoveryRefresh as the one thing that has to differ.
-  async function setupCheck(name, existing, refreshFn = refresh) {
-    const type = window.prompt(
-      `Health check type for "${name}" — type "http" or "tcp"\n(http: checks a URL; tcp: just checks the port accepts a connection)\n\nOnly needed if this service has no Docker HEALTHCHECK of its own — otherwise PodoType already reads that for free.`,
-      (existing && existing.type) || 'http'
-    );
-    if (type === null) return;
-    const normalizedType = type.trim().toLowerCase();
-    if (normalizedType !== 'http' && normalizedType !== 'tcp') {
-      window.alert('Type must be "http" or "tcp".');
-      return;
-    }
-    const targetPrompt =
-      normalizedType === 'http'
-        ? `Health check URL for "${name}" (e.g. http://host:8080/health)`
-        : `Host:port to check for "${name}" (e.g. host:5432)`;
-    const target = window.prompt(targetPrompt, (existing && existing.target) || '');
-    if (target === null) return;
-    if (!target.trim()) {
-      window.alert('Target cannot be empty — use "Remove check" instead to clear it.');
-      return;
-    }
-    await api.setCheck(name, { type: normalizedType, target: target.trim() });
+  // Opens HealthCheckModal instead of the old window.prompt() pair — the
+  // modal owns its own type/target fields and inline validation now, so
+  // this just records which service it's for and lets submitCheck (below)
+  // do the actual save once the modal's own Save button is clicked.
+  function setupCheck(name, existing, refreshFn = refresh) {
+    setCheckModal({ name, existing, refreshFn });
+  }
+
+  // HealthCheckModal's onSave — thrown errors are caught by the modal
+  // itself (shown inline, modal stays open to retry); only close the
+  // modal once the save actually succeeds.
+  async function submitCheck(type, target) {
+    const { name, refreshFn } = checkModal;
+    await api.setCheck(name, { type, target });
     await refreshFn();
+    setCheckModal(null);
   }
 
   async function removeCheck(name, refreshFn = refresh) {
@@ -537,7 +541,7 @@ export default function App() {
       const compose = await api.otelCompose();
       setOtelCompose(compose);
     } catch (err) {
-      window.alert(err.message);
+      setToast({ message: err.message, variant: 'error' });
     }
   }
 
@@ -728,6 +732,16 @@ export default function App() {
 
     return (
       <div className="min-h-screen flex flex-col">
+        <ToastBanner toast={toast} onDismiss={() => setToast(null)} />
+        {checkModal && (
+          <HealthCheckModal
+            serviceName={checkModal.name}
+            initialType={checkModal.existing && checkModal.existing.type}
+            initialTarget={checkModal.existing && checkModal.existing.target}
+            onCancel={() => setCheckModal(null)}
+            onSave={submitCheck}
+          />
+        )}
         <TopBar
           mode="hosted"
           serviceCount={watchedServices.length}
@@ -927,6 +941,7 @@ export default function App() {
                   Settings
                 </h1>
                 <RetentionPanel storage={null} label="Data retention (spans, logs & metrics)" editorLabel="Configure data retention" />
+                <AppearancePanel />
               </>
             )}
 
@@ -1009,6 +1024,16 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <ToastBanner toast={toast} onDismiss={() => setToast(null)} />
+      {checkModal && (
+        <HealthCheckModal
+          serviceName={checkModal.name}
+          initialType={checkModal.existing && checkModal.existing.type}
+          initialTarget={checkModal.existing && checkModal.existing.target}
+          onCancel={() => setCheckModal(null)}
+          onSave={submitCheck}
+        />
+      )}
       <TopBar
         watchedCount={watchedCount}
         discoveredCount={services.length}
@@ -1230,6 +1255,8 @@ export default function App() {
                 </h1>
                 <RetentionPanel storage={storage} />
                 <LogRetentionPanel />
+                <PollIntervalsPanel />
+                <AppearancePanel />
               </>
             )}
 

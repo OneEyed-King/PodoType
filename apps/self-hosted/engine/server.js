@@ -58,6 +58,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const net = require('net');
+const tls = require('tls');
 const http = require('http');
 const zlib = require('zlib');
 const crypto = require('crypto');
@@ -155,7 +156,7 @@ const CLICKHOUSE_LOG_PATTERN_TTL_HOURS = parseInt(process.env.CLICKHOUSE_LOG_PAT
 // redeploy — the exact gap this project's own retrospective flagged: traces
 // were being kept around (see CLICKHOUSE_TRACE_TTL_HOURS above) while
 // metrics, the other half of "logs, metrics, traces," were not. This table
-// is a periodic (see CONTAINER_METRICS_SNAPSHOT_INTERVAL_MS) low-cardinality
+// is a periodic (see pollIntervals.containerMetricsSnapshotSeconds) low-cardinality
 // snapshot of the same numbers the live charts already show — one row per
 // watched service per snapshot, not a copy of every stats poll — specifically
 // so a person can come back tomorrow and see what CPU/error-rate looked like
@@ -659,9 +660,13 @@ const SLOW_THRESHOLD_MS = parseInt(process.env.SLOW_THRESHOLD_MS || '500', 10);
 const LOOKBACK_SECONDS = parseInt(process.env.LOOKBACK_SECONDS || '300', 10);
 // How often to re-run each service's active health check, and how long to
 // wait for one before calling it a failure. Kept short by default — this is
-// meant to feel like Uptime Kuma, not a slow batch job.
-const CHECK_INTERVAL_SECONDS = parseInt(process.env.CHECK_INTERVAL_SECONDS || '30', 10);
-const CHECK_TIMEOUT_SECONDS = parseInt(process.env.CHECK_TIMEOUT_SECONDS || '5', 10);
+// meant to feel like Uptime Kuma, not a slow batch job. Both are only the
+// FIRST-RUN seed now — see defaultPollIntervals/mergePollIntervals below for
+// how state.json (edited via GET/POST /api/poll-intervals, the Poll
+// intervals settings panel) takes over after that, same pattern every other
+// env-seeded setting in this file already uses.
+const CHECK_INTERVAL_SECONDS_DEFAULT = parseInt(process.env.CHECK_INTERVAL_SECONDS || '30', 10);
+const CHECK_TIMEOUT_SECONDS_DEFAULT = parseInt(process.env.CHECK_TIMEOUT_SECONDS || '5', 10);
 // How many recent log lines to sample per service when log-based request
 // metrics are enabled. A sample, not a full tail — this runs on every
 // /api/status poll, so it stays small on purpose (see "Log-based request
@@ -737,7 +742,9 @@ async function logWhenClickHouseReady() {
 // sweep, which doesn't emit anything this container could observe.
 const STORAGE_WARNING_PERCENT = parseInt(process.env.STORAGE_WARNING_PERCENT || '85', 10);
 const STORAGE_CRITICAL_PERCENT = parseInt(process.env.STORAGE_CRITICAL_PERCENT || '95', 10);
-const STORAGE_CHECK_INTERVAL_MS = 30000;
+// First-run seed only, same as CHECK_INTERVAL_SECONDS_DEFAULT above — see
+// defaultPollIntervals/mergePollIntervals.
+const STORAGE_CHECK_SECONDS_DEFAULT = 30;
 
 let storageStatus = {
   checkedAt: null,
@@ -1012,13 +1019,15 @@ async function logMetricsForContainer(containerId) {
 // replies, so calling it inline on every dashboard poll would make
 // /api/status itself slow to answer. Same "poll in the background, serve
 // the cached snapshot" shape as the storage watchdog and RED metrics above.
-const CONTAINER_STATS_POLL_INTERVAL_MS = 20000;
+// First-run seeds only, same as above — see defaultPollIntervals/
+// mergePollIntervals.
+const CONTAINER_STATS_POLL_SECONDS_DEFAULT = 20;
 // Much slower than the 20s in-memory stats poll above on purpose: a snapshot
 // every 60s (60 rows/service/hour, ~1440/day) is plenty of resolution for
 // looking back at "what did yesterday afternoon look like," while keeping
 // this genuinely-second-copy-of-data table's write volume and disk footprint
 // small relative to the trace data ClickHouse is already storing.
-const CONTAINER_METRICS_SNAPSHOT_INTERVAL_MS = 60000;
+const CONTAINER_METRICS_SNAPSHOT_SECONDS_DEFAULT = 60;
 // Env vars seed the FIRST-RUN default only — once alertConfig.thresholds
 // exists in state.json (see defaultAlertConfig/loadState below), the value
 // saved there via the Alerts settings UI wins from then on, same as every
@@ -1031,7 +1040,7 @@ const MEM_CRITICAL_PERCENT_DEFAULT = parseInt(process.env.MEM_CRITICAL_PERCENT |
 // constant so "how far back can I see" means the same thing everywhere
 // rather than a different window per chart. At the default 20s container-
 // stats cadence, 180 points is an hour; RED-metrics history (polled on its
-// own faster 15s cycle, see RED_METRICS_POLL_INTERVAL_MS) ends up covering
+// own faster cycle, see pollIntervals.redMetricsPollSeconds) ends up covering
 // somewhat less than that at the same point count, which is fine — request
 // rate is the one signal here that's actually worth seeing at finer
 // resolution anyway.
@@ -1394,7 +1403,9 @@ async function pollContainerHealth() {
 // fires, and clears the moment a single cycle comes back healthy. Avoids
 // paging someone over one noisy blip (a container mid-restart, one slow
 // Docker stats call) while still catching anything that's actually stuck.
-const ALERT_EVAL_INTERVAL_MS = 15000;
+// First-run seed only, same as above — see defaultPollIntervals/
+// mergePollIntervals.
+const ALERT_EVAL_SECONDS_DEFAULT = 15;
 const ALERT_HISTORY_LIMIT = 200;
 
 // Everything below (sustain window, per-trigger on/off, CPU/memory
@@ -1429,6 +1440,14 @@ const ERROR_RATE_CRITICAL_PERCENT_DEFAULT = parseInt(process.env.ERROR_RATE_CRIT
 // user-editable from the Alerts settings UI same as every other threshold.
 const LATENCY_WARNING_MS_DEFAULT = parseInt(process.env.LATENCY_WARNING_MS || String(SLOW_THRESHOLD_MS), 10);
 const LATENCY_CRITICAL_MS_DEFAULT = parseInt(process.env.LATENCY_CRITICAL_MS || String(SLOW_THRESHOLD_MS * 3), 10);
+// TLS certificate expiry — only ever evaluated for a watched service whose
+// own health check (see "check"/activeChecks above) is an HTTP check against
+// an https:// target, so there's no separate opt-in toggle for WHICH
+// services get checked, just whether the resulting alert is allowed to
+// fire (enabled.tlsExpiry below). Defaults (warn at 14 days, critical at 3)
+// mirror the lead time most CAs' own renewal-reminder emails use.
+const TLS_EXPIRY_WARNING_DAYS_DEFAULT = parseInt(process.env.TLS_EXPIRY_WARNING_DAYS || '14', 10);
+const TLS_EXPIRY_CRITICAL_DAYS_DEFAULT = parseInt(process.env.TLS_EXPIRY_CRITICAL_DAYS || '3', 10);
 const ALERT_TELEGRAM_BOT_TOKEN_DEFAULT = process.env.ALERT_TELEGRAM_BOT_TOKEN || '';
 const ALERT_TELEGRAM_CHAT_ID_DEFAULT = process.env.ALERT_TELEGRAM_CHAT_ID || '';
 const ALERT_WEBHOOK_URL_DEFAULT = process.env.ALERT_WEBHOOK_URL || '';
@@ -1466,7 +1485,7 @@ function defaultAlertConfig() {
     // service they care about (the same "eBPF Data" panel already shows
     // this) — an error-rate alert firing off zero real samples would just be
     // noise.
-    enabled: { serviceDown: true, storage: true, cpu: true, memory: true, errorRate: false, latency: false },
+    enabled: { serviceDown: true, storage: true, cpu: true, memory: true, errorRate: false, latency: false, tlsExpiry: true },
     thresholds: {
       cpuWarningPercent: CPU_WARNING_PERCENT_DEFAULT,
       cpuCriticalPercent: CPU_CRITICAL_PERCENT_DEFAULT,
@@ -1476,6 +1495,11 @@ function defaultAlertConfig() {
       errorRateCriticalPercent: ERROR_RATE_CRITICAL_PERCENT_DEFAULT,
       latencyWarningMs: LATENCY_WARNING_MS_DEFAULT,
       latencyCriticalMs: LATENCY_CRITICAL_MS_DEFAULT,
+      // Lower is worse here (fewer days left), unlike every other pair in
+      // this object — see evaluateAlerts' tls-expiry condition, which
+      // breaches at CRITICAL when daysUntilExpiry <= this, not >=.
+      tlsExpiryWarningDays: TLS_EXPIRY_WARNING_DAYS_DEFAULT,
+      tlsExpiryCriticalDays: TLS_EXPIRY_CRITICAL_DAYS_DEFAULT,
       // Absolute-memory-usage thresholds, in MB — null (not just "high") by
       // default, deliberately NOT given a global default the way CPU/mem
       // percent are: percent-of-configured-limit already covers "using too
@@ -1650,12 +1674,26 @@ async function sendEmailNotification(subject, text, cfg) {
 // Fire-and-forget from evaluateAlertCondition's own call sites (a real alert
 // firing shouldn't block on Telegram's API being slow) — /api/alerts/test
 // calls the two send functions directly instead, since IT needs the result.
+//
+// Each individual alert's own `message` already reads as a full sentence
+// (e.g. "dummy-kafka's TLS certificate expires in 33 days" — see this
+// condition's own kind/message above, and every other evaluateAlerts
+// condition's message is built the same way), so this only adds a proper
+// title line above it rather than repeating the service name a second
+// time or squashing everything onto one run-on line like the old
+// "podotype alert: <message>" text did. Severity picks the icon (critical
+// gets 🔴, a plain warning gets ⚠️, a resolved notice gets ✅) so the icon
+// alone says how urgent this is before anyone reads the words.
 function notifyAlert(alert, event, channels) {
-  const text =
-    event === 'fired' ? `🔴 podotype alert: ${alert.message}` : `✅ podotype: ${alert.message} — resolved`;
+  const resolved = event === 'resolved';
+  const critical = alert.severity === 'critical';
+  const icon = resolved ? '✅' : critical ? '🔴' : '⚠️';
+  const title = resolved ? 'PodoType — Resolved' : `PodoType Alert (${critical ? 'Critical' : 'Warning'})`;
+  const text = `${icon} ${title}\n${alert.message}${resolved ? ' — resolved' : ''}`;
+  const subject = `${icon} ${title}: ${alert.service || 'PodoType'}`;
   sendTelegramMessage(text, channels.telegram);
   sendWebhookNotification(text, channels.webhook);
-  sendEmailNotification(text, text, channels.email);
+  sendEmailNotification(subject, text, channels.email);
 }
 
 // The one piece of logic every alert condition shares: sustain-N-checks to
@@ -1666,7 +1704,7 @@ function notifyAlert(alert, event, channels) {
 // `sustainChecks`/`channels` are passed in fresh from the current
 // alertConfig on every call rather than read from a module constant, since
 // either can change between cycles via the settings UI.
-function evaluateAlertCondition(key, breached, meta, sustainChecks, channels) {
+function evaluateAlertCondition(key, breached, meta, sustainChecks, channels, evalIntervalMs) {
   const state = alertConditionState.get(key) || { consecutiveBreaches: 0, active: false };
   if (breached) {
     state.consecutiveBreaches += 1;
@@ -1675,7 +1713,7 @@ function evaluateAlertCondition(key, breached, meta, sustainChecks, channels) {
       const alert = {
         key,
         ...meta,
-        firstBreachAt: new Date(Date.now() - (state.consecutiveBreaches - 1) * ALERT_EVAL_INTERVAL_MS).toISOString(),
+        firstBreachAt: new Date(Date.now() - (state.consecutiveBreaches - 1) * evalIntervalMs).toISOString(),
         firedAt: new Date().toISOString(),
       };
       activeAlerts.set(key, alert);
@@ -1703,7 +1741,7 @@ function evaluateAlertCondition(key, breached, meta, sustainChecks, channels) {
   alertConditionState.set(key, state);
 }
 
-// Runs every ALERT_EVAL_INTERVAL_MS (wired up at the bottom of this file),
+// Runs on the alertEvalSeconds cadence (see pollIntervals, wired up via
 // reading the same state everything else here already maintains
 // (storageStatus, containerHealthCache, dockerHealthSignal, activeChecks) —
 // this function doesn't poll anything itself, it just judges what those
@@ -1737,6 +1775,11 @@ function effectiveAlertSettingsForService(globalConfig, entry) {
 async function evaluateAlerts() {
   const state = loadState();
   const { sustainChecks, channels } = state.alertConfig;
+  // Current eval cadence, in ms — only ever used below for firstBreachAt's
+  // backdating math (see evaluateAlertCondition), which needs to know how
+  // far apart these cycles actually are to reconstruct when a sustained
+  // breach really started.
+  const evalIntervalMs = state.pollIntervals.alertEvalSeconds * 1000;
   const watchedEntries = Object.entries(state.services).filter(([, e]) => e.watched);
 
   let containers = [];
@@ -1772,8 +1815,42 @@ async function evaluateAlerts() {
       enabled.serviceDown && up === false,
       { kind: 'service-down', service: name, severity: 'critical', message: `${name} appears to be down` },
       sustainChecks,
-      channels
+      channels,
+      evalIntervalMs
     );
+
+    // TLS certificate expiry — reads whatever pollTlsCertExpiry's own,
+    // much-slower-cadence poller last found (see "TLS certificate expiry"
+    // section above); this loop never does the handshake itself. Severity
+    // is INVERTED relative to every other condition in this function: a
+    // SMALLER daysUntilExpiry is worse, so critical is checked against the
+    // lower of the two thresholds, not the higher.
+    const certInfo = tlsCertCache.get(name);
+    if (certInfo && certInfo.daysUntilExpiry !== null) {
+      const days = certInfo.daysUntilExpiry;
+      const tlsSeverity =
+        days <= thresholds.tlsExpiryCriticalDays
+          ? 'critical'
+          : days <= thresholds.tlsExpiryWarningDays
+            ? 'warning'
+            : 'ok';
+      evaluateAlertCondition(
+        `tls-expiry:${name}`,
+        enabled.tlsExpiry && tlsSeverity !== 'ok',
+        {
+          kind: 'tls-expiry',
+          service: name,
+          severity: tlsSeverity,
+          message:
+            days < 0
+              ? `${name}'s TLS certificate expired ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago`
+              : `${name}'s TLS certificate expires in ${days} day${days === 1 ? '' : 's'}`,
+        },
+        sustainChecks,
+        channels,
+        evalIntervalMs
+      );
+    }
 
     // RED-metric alerts (error rate, latency) — evaluated from whatever this
     // container's own Beyla-resolved name/instance ids turn out to be, same
@@ -1811,7 +1888,8 @@ async function evaluateAlerts() {
             message: `${name} error rate at ${errPercent.toFixed(1)}% (${red.requestsPerSec.toFixed(1)} req/s)`,
           },
           sustainChecks,
-          channels
+          channels,
+          evalIntervalMs
         );
       }
 
@@ -1849,7 +1927,8 @@ async function evaluateAlerts() {
             message: `${name} p95 latency at ${Math.round(trace.p95Ms)}ms`,
           },
           sustainChecks,
-          channels
+          channels,
+          evalIntervalMs
         );
       }
     }
@@ -1870,7 +1949,8 @@ async function evaluateAlerts() {
         enabled.cpu && cpuSeverity !== 'ok',
         { kind: 'cpu', service: name, severity: cpuSeverity, message: `${name} CPU at ${Math.round(health.cpuPercent)}%` },
         sustainChecks,
-        channels
+        channels,
+        evalIntervalMs
       );
     }
 
@@ -1894,7 +1974,8 @@ async function evaluateAlerts() {
         enabled.memory && memSeverity !== 'ok',
         { kind: 'memory', service: name, severity: memSeverity, message: `${name} memory at ${Math.round(health.memPercent)}%` },
         sustainChecks,
-        channels
+        channels,
+        evalIntervalMs
       );
     }
 
@@ -1919,7 +2000,8 @@ async function evaluateAlerts() {
         enabled.memory && mbSeverity !== 'ok',
         { kind: 'memory-mb', service: name, severity: mbSeverity, message: `${name} memory at ${Math.round(memMb)}MB` },
         sustainChecks,
-        channels
+        channels,
+        evalIntervalMs
       );
     }
   }
@@ -1939,7 +2021,8 @@ async function evaluateAlerts() {
     state.alertConfig.enabled.storage && (storageStatus.status === 'warning' || storageStatus.status === 'critical'),
     { kind: 'storage', service: null, severity: storageStatus.status, message: `ClickHouse disk is ${storageStatus.usedPercent}% full` },
     sustainChecks,
-    channels
+    channels,
+    evalIntervalMs
   );
 }
 
@@ -2159,12 +2242,17 @@ function streamContainerLogs(containerId, { tail = 100 } = {}) {
 // What's actually stored is the CLUSTERED PATTERN, not raw lines — reusing
 // normalizeLogLine/classifyLogLevel above, the exact same logic the
 // on-the-fly Clustered Logs tab already uses — plus a running count and
-// one example line, flushed to ClickHouse every LOG_PATTERN_FLUSH_INTERVAL_MS.
+// one example line, flushed to ClickHouse every logPatternFlushSeconds (see pollIntervals).
 // For any real service, most lines are one of a handful of repeating
 // shapes, so this is routinely a tiny fraction of what raw-line storage
 // would cost — the trade-off being that only ONE example line survives
 // per pattern per flush window, not every original line.
-const LOG_PATTERN_FLUSH_INTERVAL_MS = parseInt(process.env.LOG_PATTERN_FLUSH_INTERVAL_MS || '30000', 10);
+// Seconds, not ms, to match every other field in pollIntervals — the env
+// var itself (pre-existing, named _MS) is still read in ms for backward
+// compatibility with anyone who already set it, just converted once here.
+const LOG_PATTERN_FLUSH_SECONDS_DEFAULT = Math.round(
+  parseInt(process.env.LOG_PATTERN_FLUSH_INTERVAL_MS || '30000', 10) / 1000
+);
 
 // serviceName -> { containerId, tailer, patterns: Map<template, {level, count, sample}> }
 const logIngestState = new Map();
@@ -3346,7 +3434,7 @@ function startCheck(name, check) {
   activeChecks.set(name, entry);
   const run = () => runCheckOnce(name);
   run(); // fire immediately — don't make the UI wait a full interval for a first result
-  entry.timer = setInterval(run, CHECK_INTERVAL_SECONDS * 1000);
+  entry.timer = setInterval(run, getPollIntervals().checkSeconds * 1000);
 }
 
 async function runCheckOnce(name) {
@@ -3354,10 +3442,11 @@ async function runCheckOnce(name) {
   if (!entry) return;
   const startedAt = Date.now();
   try {
+    const checkTimeoutMs = getPollIntervals().checkTimeoutSeconds * 1000;
     if (entry.check.type === 'tcp') {
-      await tcpCheck(entry.check.target, CHECK_TIMEOUT_SECONDS * 1000);
+      await tcpCheck(entry.check.target, checkTimeoutMs);
     } else {
-      await httpCheck(entry.check.target, CHECK_TIMEOUT_SECONDS * 1000);
+      await httpCheck(entry.check.target, checkTimeoutMs);
     }
     entry.result = { up: true, checkedAt: Date.now(), responseTimeMs: Date.now() - startedAt, error: null };
   } catch (err) {
@@ -3412,6 +3501,117 @@ function tcpCheck(target, timeoutMs) {
       reject(err);
     });
   });
+}
+
+// ---- TLS certificate expiry ------------------------------------------------
+//
+// Feeds the tls-expiry alert condition in evaluateAlerts below. Deliberately
+// its own slow-cadence poller (pollIntervals.tlsCertPollHours, hours not seconds)
+// rather than something runCheckOnce does on every pollIntervals.checkSeconds —
+// a certificate's expiry date doesn't change between one health check and
+// the next, so re-handshaking every 30s would just be load for no new
+// information. Only ever runs against a watched service whose OWN health
+// check (entry.check, same one startCheck/runCheckOnce use above) is an HTTP
+// check pointed at an https:// target — there's no separate "which services"
+// configuration surface for this, it rides on the check someone already set
+// up for service-down detection.
+// First-run seed only (hours), same pattern as above.
+const TLS_CERT_POLL_HOURS_DEFAULT = parseInt(process.env.TLS_CERT_POLL_INTERVAL_HOURS || '6', 10);
+
+// name -> { daysUntilExpiry, validTo, checkedAt, error }. Mirrors
+// activeChecks' own result shape (checkedAt + error-or-value) — read by
+// evaluateAlerts, written only by pollTlsCertExpiry below.
+const tlsCertCache = new Map();
+
+// Reads a certificate's expiry WITHOUT validating the chain
+// (rejectUnauthorized: false) — this is deliberately not a "is this
+// certificate trustworthy" check (see the "Out of scope" note on the issue
+// this implements), just "when does the one actually presented expire,"
+// which is true and useful to know even for a self-signed or
+// otherwise-untrusted cert. No file or private-key access is needed: just
+// the public handshake every browser already performs.
+function fetchTlsCertExpiry(target, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    let host = target;
+    let port = 443;
+    try {
+      const u = new URL(target);
+      host = u.hostname;
+      if (u.port) port = parseInt(u.port, 10);
+    } catch {
+      // Not a parseable URL — fall through and try target as a bare
+      // host[:port], same leniency tcpCheck's own target parsing allows.
+      const lastColon = target.lastIndexOf(':');
+      if (lastColon !== -1) {
+        host = target.slice(0, lastColon);
+        const p = parseInt(target.slice(lastColon + 1), 10);
+        if (Number.isInteger(p)) port = p;
+      }
+    }
+    const socket = tls.connect(
+      { host, port, servername: host, rejectUnauthorized: false, timeout: timeoutMs },
+      () => {
+        try {
+          const cert = socket.getPeerCertificate();
+          socket.end();
+          if (!cert || !cert.valid_to) {
+            reject(new Error('no certificate presented'));
+            return;
+          }
+          const validTo = new Date(cert.valid_to);
+          const daysUntilExpiry = Math.floor((validTo.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+          resolve({ daysUntilExpiry, validTo: validTo.toISOString() });
+        } catch (err) {
+          socket.end();
+          reject(err);
+        }
+      }
+    );
+    socket.once('timeout', () => {
+      socket.destroy();
+      reject(new Error('TLS connect timeout'));
+    });
+    socket.once('error', reject);
+  });
+}
+
+// Runs on the tlsCertPollHours cadence (see pollIntervals, wired up at the bottom of this
+// file) for every watched service whose check is an HTTP check against an
+// https:// target. A handshake failure (expired/unreachable/no cert) is
+// cached as an error rather than dropped — evaluateAlerts only acts on a
+// present daysUntilExpiry, so a transient failure here just means that
+// cycle's tls-expiry condition evaluates against last-known-good data
+// (same "skip this cycle rather than guess" approach evaluateAlerts itself
+// takes when listContainers() fails).
+// Pulled out of pollTlsCertExpiry so it can also be fired immediately for
+// one service the moment its check is (re)pointed at an https:// target or
+// it's (re)watched — same "don't make the UI wait a full interval for a
+// first result" reasoning startCheck's own run() already applies to the
+// uptime side of the same check.
+async function refreshTlsCertForService(name, entry) {
+  const check = entry && entry.check;
+  if (!entry || !entry.watched || !check || check.type !== 'http' || !/^https:\/\//i.test(check.target || '')) {
+    tlsCertCache.delete(name);
+    return;
+  }
+  try {
+    const { daysUntilExpiry, validTo } = await fetchTlsCertExpiry(check.target, getPollIntervals().checkTimeoutSeconds * 1000);
+    tlsCertCache.set(name, { daysUntilExpiry, validTo, checkedAt: Date.now(), error: null });
+  } catch (err) {
+    tlsCertCache.set(name, { daysUntilExpiry: null, validTo: null, checkedAt: Date.now(), error: describeFetchError(err) });
+  }
+}
+
+async function pollTlsCertExpiry() {
+  const state = loadState();
+  const watchedEntries = Object.entries(state.services).filter(([, e]) => e.watched);
+  const watchedNames = new Set(watchedEntries.map(([name]) => name));
+  // Drop cache entries for services no longer watched, same cleanup
+  // reasoning latencyHistory's own pruning uses below.
+  for (const name of tlsCertCache.keys()) {
+    if (!watchedNames.has(name)) tlsCertCache.delete(name);
+  }
+  await Promise.all(watchedEntries.map(([name, entry]) => refreshTlsCertForService(name, entry)));
 }
 
 // ---- Express app -----------------------------------------------------------
@@ -3520,6 +3720,14 @@ function mergeAlertConfig(saved) {
     channels: {
       telegram: { ...def.channels.telegram, ...((ac.channels && ac.channels.telegram) || {}) },
       webhook: { ...def.channels.webhook, ...((ac.channels && ac.channels.webhook) || {}) },
+      // FIX — this block used to merge only telegram/webhook, silently
+      // dropping a saved email channel (credentials, enabled flag, the lot)
+      // on every single loadState() call, which runs on basically every
+      // request and every 15s alert-eval cycle. Email would look saved for
+      // a moment after hitting Save, then vanish the next time state.json
+      // was re-read — see POST /api/alerts/config and defaultAlertConfig's
+      // own `channels.email` shape, both of which always supported it.
+      email: { ...def.channels.email, ...((ac.channels && ac.channels.email) || {}) },
     },
   };
 }
@@ -3543,6 +3751,75 @@ function mergeLogRetentionConfig(saved) {
   const hours =
     saved && typeof saved.hours === 'number' && saved.hours >= 1 ? Math.round(saved.hours) : CLICKHOUSE_LOG_PATTERN_TTL_HOURS;
   return { hours };
+}
+
+// Every background poll/eval cadence in this file, in one place — used to
+// be env-var-only (fixed at container start, same complaint this project
+// already heard about alert thresholds/retention before those got their
+// own settings UI): "Poll intervals" under Settings is the direct answer to
+// "I shouldn't have to touch an env var and restart the container for
+// anything this app itself decides." Units are seconds everywhere except
+// tlsCertPollHours (hours — that one's naturally a much longer cadence; see
+// its own field comment). Applying a saved change at runtime (restarting
+// the actual timers, not just this object) is applyPollIntervals' job, a
+// few hundred lines down, right where every poller it manages is defined.
+function defaultPollIntervals() {
+  return {
+    checkSeconds: CHECK_INTERVAL_SECONDS_DEFAULT,
+    checkTimeoutSeconds: CHECK_TIMEOUT_SECONDS_DEFAULT,
+    storageCheckSeconds: STORAGE_CHECK_SECONDS_DEFAULT,
+    containerStatsPollSeconds: CONTAINER_STATS_POLL_SECONDS_DEFAULT,
+    containerMetricsSnapshotSeconds: CONTAINER_METRICS_SNAPSHOT_SECONDS_DEFAULT,
+    alertEvalSeconds: ALERT_EVAL_SECONDS_DEFAULT,
+    logPatternFlushSeconds: LOG_PATTERN_FLUSH_SECONDS_DEFAULT,
+    redMetricsPollSeconds: RED_METRICS_POLL_SECONDS_DEFAULT,
+    // Hours, not seconds — a certificate's expiry date doesn't move fast
+    // enough to justify checking more often than this by default, and this
+    // one handshakes an EXTERNAL host rather than something local, so the
+    // floor clamped in the POST handler below is more conservative too.
+    tlsCertPollHours: TLS_CERT_POLL_HOURS_DEFAULT,
+  };
+}
+
+// Same "fill in anything the default has that a saved config doesn't"
+// reasoning as mergeAlertConfig — clamped to a sane floor per field so a
+// stray 0/negative/non-numeric value from a hand-edited state.json can't
+// turn a poller into a hot loop.
+function clampIntervalField(value, fallback, minimum) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(minimum, Math.round(n));
+}
+
+function mergePollIntervals(saved) {
+  const def = defaultPollIntervals();
+  const s = saved || {};
+  return {
+    checkSeconds: clampIntervalField(s.checkSeconds, def.checkSeconds, 5),
+    checkTimeoutSeconds: clampIntervalField(s.checkTimeoutSeconds, def.checkTimeoutSeconds, 1),
+    storageCheckSeconds: clampIntervalField(s.storageCheckSeconds, def.storageCheckSeconds, 5),
+    containerStatsPollSeconds: clampIntervalField(s.containerStatsPollSeconds, def.containerStatsPollSeconds, 5),
+    containerMetricsSnapshotSeconds: clampIntervalField(s.containerMetricsSnapshotSeconds, def.containerMetricsSnapshotSeconds, 10),
+    alertEvalSeconds: clampIntervalField(s.alertEvalSeconds, def.alertEvalSeconds, 5),
+    logPatternFlushSeconds: clampIntervalField(s.logPatternFlushSeconds, def.logPatternFlushSeconds, 5),
+    redMetricsPollSeconds: clampIntervalField(s.redMetricsPollSeconds, def.redMetricsPollSeconds, 5),
+    // Floor of 0.25h (15min) rather than 5s like the others — this one
+    // reaches out over the network to whatever host the service's check
+    // points at, not something local, so it deserves a more conservative
+    // minimum against someone fat-fingering a number and hammering an
+    // external site.
+    tlsCertPollHours: clampIntervalField(s.tlsCertPollHours, def.tlsCertPollHours, 0.25),
+  };
+}
+
+// Reads the CURRENT poll intervals straight from disk — same "always read
+// state fresh, never trust an in-memory copy that might be stale" approach
+// evaluateAlerts itself already takes for alertConfig. Called from inside
+// the hot paths that need one of these values (runCheckOnce, this service's
+// own TLS refresh, a couple of estimate-only API responses) rather than
+// keeping a separate module-level mirror that could drift from state.json.
+function getPollIntervals() {
+  return loadState().pollIntervals;
 }
 
 // The "Improve the cost panel" backlog item (#15): auto-estimating host
@@ -3579,6 +3856,7 @@ function loadState() {
       deployMarkers: [],
       alertHistory: [],
       costOverride: null,
+      pollIntervals: mergePollIntervals(null),
     };
   }
   // Migrate the pre-health-check shape ({ watched: { name: bool } }) rather
@@ -3596,6 +3874,7 @@ function loadState() {
       deployMarkers: Array.isArray(raw.deployMarkers) ? raw.deployMarkers : [],
       alertHistory: Array.isArray(raw.alertHistory) ? raw.alertHistory : [],
       costOverride: mergeCostOverride(raw.costOverride),
+      pollIntervals: mergePollIntervals(raw.pollIntervals),
     };
   }
   const services = (raw && raw.services) || {};
@@ -3627,6 +3906,11 @@ function loadState() {
     alertHistory: Array.isArray(raw && raw.alertHistory) ? raw.alertHistory : [],
     // Manual cost override — see mergeCostOverride's own comment.
     costOverride: mergeCostOverride(raw && raw.costOverride),
+    // Every background poll/eval cadence — see defaultPollIntervals' own
+    // comment. Absent on any state.json saved before this existed, same
+    // "merge onto defaults" treatment every other settings section here
+    // already gets.
+    pollIntervals: mergePollIntervals(raw && raw.pollIntervals),
   };
 }
 
@@ -4051,7 +4335,7 @@ app.get('/api/host-stats', (req, res) => {
     available: hostStatsCurrent !== null,
     current: hostStatsCurrent,
     history,
-    historyRetentionSeconds: (HOST_STATS_HISTORY_MAX_POINTS * CONTAINER_STATS_POLL_INTERVAL_MS) / 1000,
+    historyRetentionSeconds: HOST_STATS_HISTORY_MAX_POINTS * getPollIntervals().containerStatsPollSeconds,
   });
 });
 
@@ -4179,7 +4463,8 @@ function resolveBeylaInstanceIds(container) {
 // BEYLA_HOST (or BEYLA_METRICS_URL directly) back to that service name.
 const BEYLA_HOST = process.env.BEYLA_HOST || 'localhost';
 const BEYLA_METRICS_URL = process.env.BEYLA_METRICS_URL || `http://${BEYLA_HOST}:9464/metrics`;
-const RED_METRICS_POLL_INTERVAL_MS = 15000;
+// First-run seed only, same as above.
+const RED_METRICS_POLL_SECONDS_DEFAULT = 15;
 
 // key `${serviceName}|${instanceId}` -> { totalCount, err5xxCount, atMs } —
 // the raw cumulative counters as of the last successful poll.
@@ -4197,13 +4482,27 @@ let redMetricsLastRawSampleNames = []; // small debug aid — see /api/debug/bey
 // service|instance key rather than a Docker container id.
 let redMetricsHistory = new Map();
 
+// FIX — the latency half of the same endpoint. This was referenced
+// (evaluateAlerts' own pushBoundedHistory call, the cleanup loop that
+// drops entries for no-longer-watched services, and the metrics-history
+// GET handler itself) but never actually DECLARED anywhere in this file —
+// every read of it threw a ReferenceError. Writes went silently unnoticed
+// (evaluateAlerts runs inside a .catch(() => {}) at its call site), but a
+// read is an async Express route handler with no try/catch of its own, so
+// the resulting unhandled rejection crashed the whole process the moment
+// anyone opened a watched service's latency chart. Keyed by the
+// service's own canonical (watched) name, same as containerStatsHistory
+// is keyed by container id — see evaluateAlerts' own comment for where
+// this gets populated.
+let latencyHistory = new Map();
+
 // serviceName (canonical watched name, NOT the beyla-resolved runtime
 // name — this is keyed the same way GET /api/services/:name/metrics-history
 // is queried, by WHAT THE PERSON WATCHES) -> bounded array of
 // { t, p50Ms, p95Ms, p99Ms }, oldest first, capped at
 // METRICS_HISTORY_POINTS — the latency half of the Traces tab's new
 // sparkline. Sampled from the exact same traceSignal() call
-// evaluateAlerts() already makes every ALERT_EVAL_INTERVAL_MS to check
+// evaluateAlerts() already makes every alertEvalSeconds cadence (see pollIntervals) to check
 // the latency alert threshold, so this costs nothing extra: a second
 // consumer of a ClickHouse query this file was already running, not a
 // new poller or a new query.
@@ -4743,6 +5042,12 @@ app.post('/api/services/:name/toggle', (req, res) => {
   saveState(state);
   if (entry.watched && entry.check) startCheck(name, entry.check);
   else stopCheck(name);
+  // Same immediate-refresh reasoning as the /check route above — a check
+  // can already be configured from before this service was (re)watched, in
+  // which case the TLS cache would otherwise sit stale until the next 6h
+  // poll even though the uptime side already started checking right away.
+  if (entry.watched) refreshTlsCertForService(name, entry).catch(() => {});
+  else tlsCertCache.delete(name);
   res.json({ name, watched: entry.watched, check: entry.check, metrics: entry.metrics, otel: entry.otel });
 });
 
@@ -4793,6 +5098,10 @@ app.post('/api/services/:name/check', (req, res) => {
   }
 
   saveState(state);
+  // Fire-and-forget: this response shouldn't block on a TLS handshake, and
+  // refreshTlsCertForService never throws (errors land in the cache's own
+  // `error` field instead).
+  refreshTlsCertForService(name, entry).catch(() => {});
   res.json({ name, check: entry.check });
 });
 
@@ -4868,7 +5177,7 @@ app.post('/api/services/:name/alert-overrides', (req, res) => {
   const next = { enabled: { ...current.enabled }, thresholds: { ...current.thresholds } };
 
   if (body.enabled) {
-    for (const key of ['serviceDown', 'cpu', 'memory', 'errorRate', 'latency']) {
+    for (const key of ['serviceDown', 'cpu', 'memory', 'errorRate', 'latency', 'tlsExpiry']) {
       // Explicit null clears just this one enabled-override (back to
       // inheriting whatever the global toggle is), same convention as
       // thresholds below — a per-field "un-override," not a full reset.
@@ -4897,6 +5206,7 @@ app.post('/api/services/:name/alert-overrides', (req, res) => {
       'errorRateCriticalPercent',
     ];
     const MS_FIELDS = ['latencyWarningMs', 'latencyCriticalMs', 'memWarningMb', 'memCriticalMb'];
+    const DAYS_FIELDS = ['tlsExpiryWarningDays', 'tlsExpiryCriticalDays'];
     for (const key of PERCENT_FIELDS) {
       if (t[key] === null) delete next.thresholds[key];
       else if (t[key] !== undefined) next.thresholds[key] = clampPercent(t[key], next.thresholds[key] ?? globalT[key]);
@@ -4904,6 +5214,10 @@ app.post('/api/services/:name/alert-overrides', (req, res) => {
     for (const key of MS_FIELDS) {
       if (t[key] === null) delete next.thresholds[key];
       else if (t[key] !== undefined) next.thresholds[key] = clampMs(t[key], next.thresholds[key] ?? globalT[key]);
+    }
+    for (const key of DAYS_FIELDS) {
+      if (t[key] === null) delete next.thresholds[key];
+      else if (t[key] !== undefined) next.thresholds[key] = clampDays(t[key], next.thresholds[key] ?? globalT[key]);
     }
   }
 
@@ -5322,6 +5636,14 @@ function clampMs(value, fallback) {
   return Math.max(0, n);
 }
 
+// Same idea again, for the TLS expiry thresholds — a day count, not ms, but
+// the same "non-negative integer or keep whatever was there" guard applies.
+function clampDays(value, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.round(n));
+}
+
 // Partial update — send just the fields changing (e.g. one threshold, or
 // one channel's credentials); anything omitted keeps its current saved
 // value. Merges onto the CURRENT alertConfig (not just the defaults) so
@@ -5354,6 +5676,10 @@ app.post('/api/alerts/config', (req, res) => {
       next.thresholds.errorRateCriticalPercent = clampPercent(t.errorRateCriticalPercent, current.thresholds.errorRateCriticalPercent);
     if (t.latencyWarningMs !== undefined) next.thresholds.latencyWarningMs = clampMs(t.latencyWarningMs, current.thresholds.latencyWarningMs);
     if (t.latencyCriticalMs !== undefined) next.thresholds.latencyCriticalMs = clampMs(t.latencyCriticalMs, current.thresholds.latencyCriticalMs);
+    if (t.tlsExpiryWarningDays !== undefined)
+      next.thresholds.tlsExpiryWarningDays = clampDays(t.tlsExpiryWarningDays, current.thresholds.tlsExpiryWarningDays);
+    if (t.tlsExpiryCriticalDays !== undefined)
+      next.thresholds.tlsExpiryCriticalDays = clampDays(t.tlsExpiryCriticalDays, current.thresholds.tlsExpiryCriticalDays);
   }
   if (body.sustainChecks !== undefined) {
     const n = parseInt(body.sustainChecks, 10);
@@ -5400,7 +5726,7 @@ app.post('/api/alerts/config', (req, res) => {
 app.post('/api/alerts/test', async (req, res) => {
   const saved = loadState().alertConfig.channels;
   const body = req.body || {};
-  const text = '🔔 podotype test alert — if you can see this, this channel is wired up correctly.';
+  const text = '🔔 PodoType test alert — if you can see this, this channel is wired up correctly.';
 
   const results = {};
   const wantTelegram = body.channel === 'telegram' || !body.channel;
@@ -5421,6 +5747,34 @@ app.post('/api/alerts/test', async (req, res) => {
   }
 
   res.json(results);
+});
+
+// ---- Poll intervals settings --------------------------------------------
+//
+// Every background poll/eval cadence this app runs, editable from the UI
+// (Settings -> Poll intervals) instead of only via env var + container
+// restart — see defaultPollIntervals/mergePollIntervals/getPollIntervals
+// above for the stored shape, and applyPollIntervals just below for what
+// actually happens to the live timers the moment a value here changes.
+app.get('/api/poll-intervals', (req, res) => {
+  res.json(loadState().pollIntervals);
+});
+
+// Partial update, same "send only what's changing" contract as every other
+// settings POST route here (/api/alerts/config, /api/retention/config) —
+// anything omitted keeps its current saved value. Saves, THEN calls
+// applyPollIntervals so every affected timer restarts with the new value
+// immediately, in the same request — no separate "apply" step, and no
+// restart.
+app.post('/api/poll-intervals', (req, res) => {
+  const state = loadState();
+  const current = state.pollIntervals;
+  const body = req.body || {};
+  const next = mergePollIntervals({ ...current, ...body });
+  state.pollIntervals = next;
+  saveState(state);
+  applyPollIntervals(next);
+  res.json(next);
 });
 
 // ---- Trace retention settings ------------------------------------------
@@ -5751,8 +6105,9 @@ app.get('/api/services/:name/metrics-history', async (req, res) => {
   // covers, so a chart can draw a vertical line at "this is when the image
   // changed" right alongside the CPU/memory/request-rate series it's already
   // rendering — additive field, nothing above this changes shape.
-  const earliestMs = history.length > 0 ? history[0].t : Date.now() - METRICS_HISTORY_POINTS * CONTAINER_STATS_POLL_INTERVAL_MS;
   const state = loadState();
+  const earliestMs =
+    history.length > 0 ? history[0].t : Date.now() - METRICS_HISTORY_POINTS * state.pollIntervals.containerStatsPollSeconds * 1000;
   const deployMarkers = (state.deployMarkers || [])
     .filter((m) => m.service === name && Date.parse(m.at) >= earliestMs)
     .map((m) => ({ at: m.at, t: Date.parse(m.at) }));
@@ -5765,7 +6120,7 @@ app.get('/api/services/:name/metrics-history', async (req, res) => {
     network: history.map((p) => ({ t: p.t, rxBps: p.netRxRateBps, txBps: p.netTxRateBps })),
     disk: history.map((p) => ({ t: p.t, readBps: p.blkReadRateBps, writeBps: p.blkWriteRateBps })),
     requests,
-    // p95 (and p50/p99 alongside it) sampled every ALERT_EVAL_INTERVAL_MS by
+    // p95 (and p50/p99 alongside it) sampled on the alertEvalSeconds cadence (see pollIntervals) by
     // evaluateAlerts — see latencyHistory's own declaration. Keyed by this
     // same canonical `name`, not the Beyla runtime name `requests` above is
     // keyed by, so this is a direct Map lookup rather than a merge.
@@ -6823,50 +7178,149 @@ app.get('/api/version', (req, res) => {
   }
   startOtlpIngestServer();
 })();
+// ---- Managed (restartable) intervals ------------------------------------
+//
+// Every poller below used to be a bare setInterval(fn, SOME_CONSTANT_MS)
+// right here at startup, with the constant fixed for the life of the
+// process — exactly the "edit an env var, restart the container" pattern
+// the Poll intervals settings panel exists to get rid of. This is the
+// minimum needed to let one of those cadences actually change at runtime:
+// a named handle per poller so its timer can be torn down and recreated
+// with a new interval, the same clearInterval+setInterval dance startCheck/
+// stopCheck already do for each individual service's own health check.
+const managedIntervals = new Map(); // key -> { fn, timer }
+
+function startManagedInterval(key, fn, ms, { immediate = true } = {}) {
+  const existing = managedIntervals.get(key);
+  if (existing && existing.timer) clearInterval(existing.timer);
+  const entry = { fn, timer: null };
+  managedIntervals.set(key, entry);
+  if (immediate) fn();
+  entry.timer = setInterval(fn, ms);
+}
+
+// Reschedules an already-started managed interval onto a new ms value
+// WITHOUT re-running it right now — this fires from a settings save, not a
+// startup, so an immediate extra run would be surprising (and for some of
+// these, like evaluateAlerts, redundant with the cycle that was already
+// about to happen).
+function restartManagedInterval(key, ms) {
+  const existing = managedIntervals.get(key);
+  if (!existing) return;
+  if (existing.timer) clearInterval(existing.timer);
+  existing.timer = setInterval(existing.fn, ms);
+}
+
+// Starts (or re-applies) every managed interval from the given
+// pollIntervals config — called once at startup with whatever's saved, and
+// again from POST /api/poll-intervals the moment someone changes a value,
+// so the new cadence takes effect in THIS same request rather than waiting
+// for a restart. Also restarts every currently active per-service check
+// (checkSeconds isn't a managed interval — it's N per-service timers in
+// activeChecks — so it gets its own pass here) and triggers an immediate
+// TLS refresh for every watched https-checked service, same "don't make
+// someone wait a full interval to see a change take effect" reasoning the
+// /check and /toggle routes already apply for a single service.
+function applyPollIntervals(intervals, { isStartup = false } = {}) {
+  restartOrStart('storageCheck', checkStorage, intervals.storageCheckSeconds * 1000);
+  restartOrStart(
+    'redMetricsPoll',
+    () => {
+      pollBeylaRedMetrics().catch(() => {});
+    },
+    intervals.redMetricsPollSeconds * 1000
+  );
+  restartOrStart(
+    'containerStatsPoll',
+    () => {
+      pollContainerHealth().catch(() => {});
+      sampleHostStats();
+    },
+    intervals.containerStatsPollSeconds * 1000
+  );
+  restartOrStart(
+    'containerMetricsSnapshot',
+    () => {
+      persistContainerMetricsSnapshot().catch(() => {});
+    },
+    intervals.containerMetricsSnapshotSeconds * 1000,
+    // Never worth an immediate extra snapshot on a settings save, and at
+    // startup it deliberately waits (see the original call-site comment
+    // below) for the pollers above to have run at least once first.
+    { immediate: false }
+  );
+  restartOrStart(
+    'tlsCertPoll',
+    () => {
+      pollTlsCertExpiry().catch(() => {});
+    },
+    intervals.tlsCertPollHours * 60 * 60 * 1000
+  );
+  restartOrStart(
+    'alertEval',
+    () => {
+      evaluateAlerts().catch(() => {});
+    },
+    intervals.alertEvalSeconds * 1000,
+    { immediate: false } // see the original call-site comment below for why
+  );
+  restartOrStart(
+    'logIngestionReconcile',
+    () => {
+      reconcileLogIngestion().catch(() => {});
+    },
+    intervals.containerStatsPollSeconds * 1000
+  );
+  restartOrStart(
+    'logPatternFlush',
+    () => {
+      flushLogPatterns().catch(() => {});
+    },
+    intervals.logPatternFlushSeconds * 1000,
+    { immediate: false } // nothing to flush yet on startup; fires on its own schedule
+  );
+
+  function restartOrStart(key, fn, ms, opts) {
+    if (isStartup) startManagedInterval(key, fn, ms, opts);
+    else restartManagedInterval(key, ms);
+  }
+
+  if (!isStartup) {
+    // checkSeconds isn't one of the managed intervals above — it's a
+    // separate per-service timer in activeChecks (see startCheck) — so
+    // pick the new interval up by restarting every check that's currently
+    // running, the same way changing one service's own check already
+    // restarts just that one timer.
+    for (const [name, entry] of activeChecks) {
+      startCheck(name, entry.check);
+    }
+    // Same immediate-refresh reasoning as the /check and /toggle routes —
+    // a lowered tlsCertPollHours shouldn't require waiting for the OLD
+    // (longer) interval to tick over once before it's honored.
+    const state = loadState();
+    for (const [name, entry] of Object.entries(state.services)) {
+      if (entry.watched) refreshTlsCertForService(name, entry).catch(() => {});
+    }
+  }
+}
+
 startConfiguredChecks();
 // Seed in-memory alertHistory from disk — see pushAlertHistory's own
 // comment for why this is now persisted, not just kept in memory.
 alertHistory = loadState().alertHistory || [];
-checkStorage();
-setInterval(checkStorage, STORAGE_CHECK_INTERVAL_MS);
-pollBeylaRedMetrics().catch(() => {}); // first poll just establishes a baseline — no rate until the second one has something to diff against
-setInterval(() => {
-  pollBeylaRedMetrics().catch(() => {});
-}, RED_METRICS_POLL_INTERVAL_MS);
-pollContainerHealth().catch(() => {});
-sampleHostStats();
-setInterval(() => {
-  pollContainerHealth().catch(() => {});
-  sampleHostStats();
-}, CONTAINER_STATS_POLL_INTERVAL_MS);
-// Long-term metrics history — see CLICKHOUSE_CONTAINER_METRICS_TABLE's
-// comment. Started after the very first pollContainerHealth/pollBeylaRedMetrics
-// calls above so its first snapshot already has real health/RED data to
-// read from, not an empty cache.
-setInterval(() => {
-  persistContainerMetricsSnapshot().catch(() => {});
-}, CONTAINER_METRICS_SNAPSHOT_INTERVAL_MS);
-// Runs after the pollers above so its very first cycle already has fresh
-// storage/container-health data to judge, rather than starting from an
-// all-null cache — not load-bearing (a healthy condition just needs one
-// real reading to start counting from), but avoids a spurious empty first
-// tick.
-evaluateAlerts().catch(() => {});
-setInterval(() => {
-  evaluateAlerts().catch(() => {});
-}, ALERT_EVAL_INTERVAL_MS);
 
-// Same cadence as the container-health poller above — starting/stopping
-// tailers for whichever services are currently opted into log storage.
-// See reconcileLogIngestion's own comment for what it actually does each
-// tick.
-reconcileLogIngestion().catch(() => {});
-setInterval(() => {
-  reconcileLogIngestion().catch(() => {});
-}, CONTAINER_STATS_POLL_INTERVAL_MS);
-setInterval(() => {
-  flushLogPatterns().catch(() => {});
-}, LOG_PATTERN_FLUSH_INTERVAL_MS);
+// Started in a specific order on purpose: storage/RED/container-health
+// first so later pollers (container-metrics snapshots, alert evaluation)
+// already have a real first reading to work from instead of an empty
+// cache — persistContainerMetricsSnapshot and evaluateAlerts both pass
+// { immediate: false } above for exactly this reason, and TLS cert expiry
+// is started before evaluateAlerts so ITS very first cycle already has a
+// real cache entry for any https-checked service.
+applyPollIntervals(loadState().pollIntervals, { isStartup: true });
+// (reconcileLogIngestion — starting/stopping tailers for whichever
+// services are currently opted into log storage, see its own comment —
+// is registered above as 'logIngestionReconcile' and already gets its
+// immediate first run from startManagedInterval's default.)
 
 // No license heartbeat, no free-tier cap sweep — self-hosted doesn't need either.
 
