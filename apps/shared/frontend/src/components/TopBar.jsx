@@ -6,6 +6,7 @@
 // keeps every prop and every branch here exactly as it was before hosted
 // existed.
 import ThemeToggle from './ThemeToggle.jsx';
+import AccentPicker from './AccentPicker.jsx';
 
 export default function TopBar({
   watchedCount,
@@ -74,6 +75,7 @@ export default function TopBar({
             ?
           </button>
         )}
+        <AccentPicker />
         <ThemeToggle />
       </div>
 

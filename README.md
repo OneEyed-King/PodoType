@@ -2,7 +2,9 @@
 
 Zero-instrumentation observability for Docker — traces, RED metrics, logs,
 and container health, auto-captured via eBPF (Beyla), with no code changes
-to your own services.
+to your own services. The dashboard also supports light/dark mode and a
+few accent color presets (top-right of the header) if you want it to feel
+a little more like yours.
 
 ## Requirements
 

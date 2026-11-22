@@ -32,7 +32,7 @@
   --color-ink: 18 22 34;
   --color-ink-dim: 71 78 97;
   --color-muted: 110 117 133;
-  --color-accent: 37 70 199;
+  --color-accent: 166 80 31;
   --color-up: 15 138 94;
   --color-down: 196 44 45;
   --color-slow: 180 98 12;
@@ -61,7 +61,7 @@
   --color-ink: 230 233 242;
   --color-ink-dim: 160 168 190;
   --color-muted: 118 126 150;
-  --color-accent: 46 84 220;
+  --color-accent: 198 110 63;
   --color-up: 56 189 133;
   --color-down: 229 96 91;
   --color-slow: 224 134 56;
@@ -87,7 +87,7 @@
     --color-ink: 230 233 242;
     --color-ink-dim: 160 168 190;
     --color-muted: 118 126 150;
-    --color-accent: 46 84 220;
+    --color-accent: 198 110 63;
     --color-up: 56 189 133;
     --color-down: 229 96 91;
     --color-slow: 224 134 56;
@@ -101,6 +101,45 @@
     --color-series-7: #9085e9;
     --color-series-8: #e66767;
   }
+}
+
+/* Accent color presets (issue: "Add selectable accent color presets
+ * for the dashboard") — AccentPicker.jsx sets data-accent on <html>
+ * (mirroring ThemeToggle.jsx's data-theme) and persists the choice to
+ * localStorage; these blocks just supply each preset's --color-accent.
+ * 'rust' is the base palette's own accent above (matches the
+ * podotype-website's rust/burnt-orange brand color, #a6501f), so it
+ * needs no override block. 'cobalt' is the dashboard's original
+ * accent, kept as an opt-in preset rather than the default. Each
+ * preset's hue is kept clear of --color-up/down/slow (green/red/
+ * orange) so a non-default accent is never mistaken for a status
+ * indicator. */
+:root[data-accent='cobalt'] {
+  --color-accent: 37 70 199;
+}
+:root[data-theme='dark'][data-accent='cobalt'] {
+  --color-accent: 46 84 220;
+}
+
+:root[data-accent='violet'] {
+  --color-accent: 124 58 237;
+}
+:root[data-theme='dark'][data-accent='violet'] {
+  --color-accent: 167 139 250;
+}
+
+:root[data-accent='teal'] {
+  --color-accent: 13 148 136;
+}
+:root[data-theme='dark'][data-accent='teal'] {
+  --color-accent: 45 212 191;
+}
+
+:root[data-accent='pink'] {
+  --color-accent: 219 39 119;
+}
+:root[data-theme='dark'][data-accent='pink'] {
+  --color-accent: 244 114 182;
 }
 
 @layer base {
