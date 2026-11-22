@@ -2,15 +2,26 @@ name: Build and push app image
 
 # Builds the self-hosted "app" image (engine + dashboard + Beyla, combined
 # — see apps/self-hosted/engine/Dockerfile) and pushes it to this repo's
-# own GHCR namespace. Runs on every push to main (tags :latest + the
-# commit sha, so a bad build can be rolled back to a known-good sha) and
-# on version tags (v1.2.3 -> image tag 1.2.3). linux/amd64 explicitly:
+# own GHCR namespace on every push to main (tags :latest + the commit
+# sha, so a bad build can be rolled back to a known-good sha) and on
+# version tags (v1.2.3 -> image tag 1.2.3). linux/amd64 explicitly:
 # cheap VPS instances are amd64, and building on GitHub's runners means
 # it's the right architecture regardless of what machine you push from.
+#
+# Also runs on every pull request targeting main — this is what makes a
+# check actually show up on the PR itself (merging a PR only creates a
+# push to main AFTER the fact, which is too late to catch a broken build
+# before it lands). A PR run builds the exact same image to prove the
+# Dockerfile/build still works, but never pushes it to GHCR — `push` to
+# the registry only happens on the real push-to-main/tag event, not on
+# someone else's unreviewed PR branch (and a PR from a fork wouldn't have
+# `packages: write` for this repo's GITHUB_TOKEN anyway).
 on:
   push:
     branches: [main]
     tags: ['v*.*.*']
+  pull_request:
+    branches: [main]
   workflow_dispatch: {} # manual rebuild from the Actions tab, no new commit needed
 
 env:
@@ -26,7 +37,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Skipped entirely on a pull_request run — logging in isn't needed
+      # (and would just fail outright for a PR from a fork, which gets a
+      # read-only GITHUB_TOKEN with no packages:write) since this run
+      # never pushes anything.
       - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -46,12 +62,15 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push
+      # push: false on a pull_request event — build-only, just to prove
+      # the image still builds cleanly; the real push-to-GHCR only
+      # happens on an actual push to main or a version tag.
+      - name: Build (and push on main/tags)
         uses: docker/build-push-action@v5
         with:
           context: .
           file: apps/self-hosted/engine/Dockerfile
           platforms: linux/amd64
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
