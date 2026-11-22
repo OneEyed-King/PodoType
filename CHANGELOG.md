@@ -33,6 +33,10 @@ does, see `README.md` — this file is for what's new.
   "podotype alert: ..." line.
 - The Profiling nav item is temporarily hidden (the feature itself is
   unverified end-to-end) until it's ready to turn back on.
+- The build-and-push CI workflow now also runs on pull requests targeting
+  main, so a check actually shows up on the PR itself (build-only, no
+  image push) instead of only running after the fact on the merge
+  commit to main.
 
 ### Fixed
 - Saved email alert channel settings (SMTP host/user/password/recipient)
