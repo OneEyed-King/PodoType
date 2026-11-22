@@ -154,6 +154,17 @@ export const engineApi = {
   // sustain window, and each notification channel's enabled+credentials.
   // POST is a partial update — send only what changed, anything omitted
   // keeps its saved value (see server.js's own merge-onto-current comment).
+  // Poll intervals settings UI: every background poll/eval cadence this
+  // app runs, editable here instead of only via env var + container
+  // restart. POST is a partial update, same "send only what changed"
+  // contract as alertsConfig's own POST below.
+  pollIntervals: () => fetchJSON('/api/poll-intervals'),
+  setPollIntervals: (partial) =>
+    fetchJSON('/api/poll-intervals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(partial),
+    }),
   alertsConfig: () => fetchJSON('/api/alerts/config'),
   setAlertsConfig: (partial) =>
     fetchJSON('/api/alerts/config', {

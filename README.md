@@ -3,8 +3,15 @@
 Zero-instrumentation observability for Docker — traces, RED metrics, logs,
 and container health, auto-captured via eBPF (Beyla), with no code changes
 to your own services. The dashboard also supports light/dark mode and a
-few accent color presets (top-right of the header) if you want it to feel
-a little more like yours.
+few accent color presets (under Settings) if you want it to feel a little
+more like yours.
+
+Alerting (service down, CPU/memory, error rate, latency, and TLS
+certificate expiry for any watched HTTPS service) ships with Telegram,
+webhook, and email channels, plus per-service overrides. Every background
+poll/eval cadence the engine runs — health checks, CPU/memory sampling,
+alert evaluation, TLS recheck, and so on — is editable from Settings too;
+none of it requires an env var change or a container restart.
 
 ## Requirements
 

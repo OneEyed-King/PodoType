@@ -8,7 +8,11 @@ import { api } from '../api.js';
 // seeded from whatever's currently EFFECTIVE (the global value, or an
 // existing override) so turning "Custom" on never starts from a blank/zero
 // value that would immediately misfire.
-function OverrideRow({ label, unit, warnValue, critValue, globalWarn, globalCrit, overridden, onToggle, onWarn, onCrit }) {
+// `direction` mirrors AlertsSettings' own ThresholdPair — "atLeast" (default)
+// for every pair except TLS expiry's "atMost" (fewer days remaining is
+// worse), purely so the label reads the right way around.
+function OverrideRow({ label, unit, warnValue, critValue, globalWarn, globalCrit, overridden, onToggle, onWarn, onCrit, direction = 'atLeast' }) {
+  const symbol = direction === 'atMost' ? '≤' : '≥';
   return (
     <div className="flex items-center gap-2 text-[13px] flex-wrap py-1">
       <label className="flex items-center gap-1.5 cursor-pointer select-none w-28 shrink-0">
@@ -17,7 +21,7 @@ function OverrideRow({ label, unit, warnValue, critValue, globalWarn, globalCrit
       </label>
       {overridden ? (
         <>
-          <span className="text-muted">warn ≥</span>
+          <span className="text-muted">warn {symbol}</span>
           <input
             type="number"
             min="0"
@@ -25,7 +29,7 @@ function OverrideRow({ label, unit, warnValue, critValue, globalWarn, globalCrit
             onChange={(e) => onWarn(e.target.value)}
             className="w-20 bg-panel border border-border-soft rounded px-1.5 py-0.5 font-mono text-[13px] text-ink"
           />
-          <span className="text-muted">{unit}, critical ≥</span>
+          <span className="text-muted">{unit}, critical {symbol}</span>
           <input
             type="number"
             min="0"
@@ -37,7 +41,7 @@ function OverrideRow({ label, unit, warnValue, critValue, globalWarn, globalCrit
         </>
       ) : (
         <span className="text-muted font-mono text-[13px]">
-          inherits global: warn ≥ {globalWarn ?? '—'}{unit}, critical ≥ {globalCrit ?? '—'}{unit}
+          inherits global: warn {symbol} {globalWarn ?? '—'}{unit}, critical {symbol} {globalCrit ?? '—'}{unit}
         </span>
       )}
     </div>
@@ -62,6 +66,15 @@ const PAIRS = [
   },
   { key: 'errorRate', label: 'Error rate', unit: '%', warnKey: 'errorRateWarningPercent', critKey: 'errorRateCriticalPercent' },
   { key: 'latency', label: 'Latency', unit: 'ms', warnKey: 'latencyWarningMs', critKey: 'latencyCriticalMs' },
+  {
+    key: 'tlsExpiry',
+    label: 'TLS expiry',
+    unit: 'd',
+    warnKey: 'tlsExpiryWarningDays',
+    critKey: 'tlsExpiryCriticalDays',
+    direction: 'atMost',
+    note: 'only checked for this service if its health check is set to "HTTP" against an https:// URL.',
+  },
 ];
 
 // Per-service custom alert thresholds — the direct answer to "I want to set
@@ -157,6 +170,7 @@ export default function ServiceAlertOverrides({ serviceName }) {
           <OverrideRow
             label={p.label}
             unit={p.unit}
+            direction={p.direction}
             warnValue={draft[p.key]?.warn ?? ''}
             critValue={draft[p.key]?.crit ?? ''}
             globalWarn={data.effective.thresholds[p.warnKey]}

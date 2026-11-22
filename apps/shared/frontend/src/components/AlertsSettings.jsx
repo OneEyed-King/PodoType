@@ -19,11 +19,17 @@ function TriggerToggle({ label, hint, checked, onChange }) {
 // inputs side by side, same shape both times. `unit` defaults to "%" (CPU/
 // memory/error-rate all share it); latency passes "ms" instead so this one
 // component covers every threshold pair rather than a near-duplicate for ms.
-function ThresholdPair({ label, warning, critical, onWarning, onCritical, unit = '%', max = 100 }) {
+// `direction` defaults to "atLeast" (warn/critical fire at or ABOVE the
+// number — true for every pair except TLS expiry). TLS expiry passes
+// "atMost": fewer days remaining is worse, so this just swaps the symbol
+// shown — evaluateAlerts on the server decides the actual breach direction
+// either way, this is purely so the label doesn't read backwards.
+function ThresholdPair({ label, warning, critical, onWarning, onCritical, unit = '%', max = 100, direction = 'atLeast' }) {
+  const symbol = direction === 'atMost' ? '≤' : '≥';
   return (
     <div className="flex items-center gap-2 text-[13px] flex-wrap">
       <span className="text-ink-dim w-14 shrink-0">{label}</span>
-      <span className="text-muted">warn ≥</span>
+      <span className="text-muted">warn {symbol}</span>
       <input
         type="number"
         min="0"
@@ -32,7 +38,7 @@ function ThresholdPair({ label, warning, critical, onWarning, onCritical, unit =
         onChange={(e) => onWarning(e.target.value)}
         className="w-16 bg-panel border border-border-soft rounded px-1.5 py-0.5 font-mono text-[13px] text-ink"
       />
-      <span className="text-muted">{unit}, critical ≥</span>
+      <span className="text-muted">{unit}, critical {symbol}</span>
       <input
         type="number"
         min="0"
@@ -202,6 +208,12 @@ export default function AlertsSettings({ onClose, onSaved }) {
             checked={config.enabled.latency}
             onChange={(v) => updateEnabled('latency', v)}
           />
+          <TriggerToggle
+            label="TLS certificate expiry"
+            hint='only checked for a watched service whose health check is set to "HTTP" against an https:// URL'
+            checked={config.enabled.tlsExpiry}
+            onChange={(v) => updateEnabled('tlsExpiry', v)}
+          />
         </div>
 
         <div>
@@ -238,6 +250,16 @@ export default function AlertsSettings({ onClose, onSaved }) {
               critical={config.thresholds.latencyCriticalMs}
               onWarning={(v) => updateThreshold('latencyWarningMs', v)}
               onCritical={(v) => updateThreshold('latencyCriticalMs', v)}
+            />
+            <ThresholdPair
+              label="TLS expiry"
+              unit="d"
+              max={365}
+              direction="atMost"
+              warning={config.thresholds.tlsExpiryWarningDays}
+              critical={config.thresholds.tlsExpiryCriticalDays}
+              onWarning={(v) => updateThreshold('tlsExpiryWarningDays', v)}
+              onCritical={(v) => updateThreshold('tlsExpiryCriticalDays', v)}
             />
           </div>
           <div className="text-[12px] text-muted mt-1">

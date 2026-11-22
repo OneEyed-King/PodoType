@@ -15,7 +15,10 @@ const NAV_ITEMS = [
   { id: 'tracing-setup', label: 'Code Tracing', icon: '\u{1F9F5}' },
   { id: 'alerts', label: 'Alerts', icon: '\u{1F514}' },
   { id: 'compare', label: 'Compare', icon: '\u{2696}\u{FE0F}' },
-  { id: 'profiling', label: 'Profiling', icon: '\u{1F525}' },
+  // 'profiling' nav entry removed for now (the feature itself —
+  // ProfilingPanel.jsx — is still in the tree, just unreachable from the
+  // nav, until it's actually verified end-to-end; see ProfilingPanel.jsx's
+  // own comment).
   { id: 'settings', label: 'Settings', icon: '⚙' },
 ];
 

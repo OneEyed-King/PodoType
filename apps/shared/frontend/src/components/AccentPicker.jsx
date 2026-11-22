@@ -16,7 +16,7 @@ const STORAGE_KEY = 'podotype-accent';
 // --color-accent values (and their dark-mode variants) live in
 // index.css's :root[data-accent=…] blocks, same separation
 // ThemeToggle.jsx already uses for data-theme.
-const PRESETS = [
+export const ACCENT_PRESETS = [
   { id: 'rust', label: 'Rust', swatch: '#a6501f' },
   { id: 'cobalt', label: 'Cobalt', swatch: '#2546c7' },
   { id: 'violet', label: 'Violet', swatch: '#7c3aed' },
@@ -27,7 +27,7 @@ const PRESETS = [
 function getInitialAccent() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (PRESETS.some((p) => p.id === stored)) return stored;
+    if (ACCENT_PRESETS.some((p) => p.id === stored)) return stored;
   } catch {
     // localStorage can throw in some embedded/private contexts — fall
     // through to the default the same as if nothing was stored.
@@ -35,17 +35,15 @@ function getInitialAccent() {
   return 'rust';
 }
 
-// A small swatch picker — sets data-accent on <html> (index.css's
-// :root[data-accent='x'] blocks are what actually swap --color-accent;
-// this component only owns the decision + persistence, same pattern as
-// ThemeToggle.jsx) and remembers the choice in localStorage so it
-// survives a reload. 'rust' is the base palette's own accent (matches
-// the podotype-website's brand color), so it's represented by the
-// ABSENCE of the attribute rather than a redundant override block.
-export default function AccentPicker() {
+// Owns the decision + persistence (sets data-accent on <html> — index.css's
+// :root[data-accent='x'] blocks are what actually swap --color-accent —
+// and remembers the choice in localStorage so it survives a reload),
+// shared by any UI that lets someone pick an accent. Pulled out of this
+// file's own dropdown-button component so the settings-page picker
+// (AppearancePanel.jsx) can use the exact same state/persistence instead
+// of a second copy of it.
+export function useAccent() {
   const [accent, setAccent] = useState(getInitialAccent);
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef(null);
 
   useEffect(() => {
     if (accent === 'rust') {
@@ -60,6 +58,17 @@ export default function AccentPicker() {
       // across reloads, not worth surfacing to the user.
     }
   }, [accent]);
+
+  return [accent, setAccent];
+}
+
+// Small swatch dropdown button — kept around for reuse, though it's no
+// longer mounted in TopBar (accent selection now lives on the Settings
+// page instead — see AppearancePanel.jsx — rather than in the nav bar).
+export default function AccentPicker() {
+  const [accent, setAccent] = useAccent();
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
 
   // Close on outside click or Escape, same expectations as any other
   // small popover in the app (e.g. the Jump palette).
@@ -79,7 +88,7 @@ export default function AccentPicker() {
     };
   }, [open]);
 
-  const current = PRESETS.find((p) => p.id === accent) ?? PRESETS[0];
+  const current = ACCENT_PRESETS.find((p) => p.id === accent) ?? ACCENT_PRESETS[0];
 
   return (
     <div className="relative" ref={rootRef}>
@@ -97,7 +106,7 @@ export default function AccentPicker() {
 
       {open && (
         <div className="absolute right-0 top-[36px] z-20 flex items-center gap-1.5 p-1.5 rounded-md border border-border bg-panel-raised shadow-lg">
-          {PRESETS.map((p) => (
+          {ACCENT_PRESETS.map((p) => (
             <button
               key={p.id}
               type="button"
