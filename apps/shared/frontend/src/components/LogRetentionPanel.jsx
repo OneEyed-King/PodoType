@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api.js';
 import InfoDot from './InfoDot.jsx';
 
@@ -26,6 +27,7 @@ function hoursToDays(hours) {
 // ClickHouse TTL mechanism underneath, just against the log_patterns
 // table instead of traces.
 export default function LogRetentionPanel() {
+  const { t } = useTranslation();
   const [config, setConfig] = useState(null);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(false);
@@ -50,8 +52,10 @@ export default function LogRetentionPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (error) return <div className="mb-5 text-[13px] text-down">Couldn't load log retention settings: {error}</div>;
-  if (!config) return <div className="mb-5 text-[13px] text-muted">Loading log retention settings…</div>;
+  if (error) {
+    return <div className="mb-5 text-[13px] text-down">{t('logRetentionPanel.couldntLoad', { error })}</div>;
+  }
+  if (!config) return <div className="mb-5 text-[13px] text-muted">{t('logRetentionPanel.loading')}</div>;
 
   const currentDays = hoursToDays(config.hours);
   const dailyBytesText = formatBytes(config.dailyBytesEstimate);
@@ -72,7 +76,7 @@ export default function LogRetentionPanel() {
 
   async function save() {
     if (!Number.isFinite(daysNum) || daysNum <= 0) {
-      setSaveError('Enter a number of days greater than 0.');
+      setSaveError(t('retentionPanel.enterDaysError'));
       return;
     }
     setSaving(true);
@@ -94,12 +98,12 @@ export default function LogRetentionPanel() {
     return (
       <div className="mb-5 border border-border rounded-lg overflow-hidden">
         <div className="px-3.5 py-2 border-b border-border-soft flex items-center justify-between">
-          <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim">Configure log-pattern retention</span>
+          <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim">{t('logRetentionPanel.configureTitle')}</span>
           <button
             type="button"
             className="link-btn text-muted hover:text-ink text-[15px] leading-none"
             onClick={() => setEditing(false)}
-            title="Close without saving"
+            title={t('alertsSettings.closeWithoutSaving')}
           >
             ×
           </button>
@@ -115,7 +119,7 @@ export default function LogRetentionPanel() {
                   Number(days) === d ? 'text-accent border-accent bg-accent/10' : 'text-ink-dim border-border-soft hover:border-accent'
                 }`}
               >
-                {d} day{d === 1 ? '' : 's'}
+                {t('retentionPanel.days', { count: d })}
               </button>
             ))}
             <input
@@ -126,39 +130,40 @@ export default function LogRetentionPanel() {
               onChange={(e) => setDays(e.target.value)}
               className="w-20 bg-panel border border-border-soft rounded px-2 py-1 font-mono text-[13px] text-ink"
             />
-            <span className="text-[13px] text-muted">days</span>
+            <span className="text-[13px] text-muted">{t('retentionPanel.daysUnit')}</span>
           </div>
 
           <div className="text-[13px] text-ink-dim">
             {config.dailyBytesEstimate !== null ? (
               <>
-                Recent volume: ~{formatBytes(config.dailyBytesEstimate)}/day (based on the last {config.sampleDays} full day
-                {config.sampleDays === 1 ? '' : 's'}) across every service with log storage turned on.{' '}
+                {t('logRetentionPanel.recentVolume', {
+                  count: config.sampleDays,
+                  bytes: formatBytes(config.dailyBytesEstimate),
+                })}{' '}
                 {previewBytes !== null && daysNum > 0 && (
                   <>
-                    At that rate, <span className="font-semibold text-ink">{daysNum} day{daysNum === 1 ? '' : 's'}</span> of
-                    retention would use approximately <span className="font-semibold text-ink">{formatBytes(previewBytes)}</span>.
+                    {t('retentionPanel.atThatRate', {
+                      daysPhrase: t('retentionPanel.days', { count: daysNum }),
+                      bytes: formatBytes(previewBytes),
+                    })}
                   </>
                 )}
               </>
             ) : (
-              <>
-                No volume estimate yet — this fills in once at least one service has log storage enabled (see any
-                service's Logs → History tab) and has been running long enough to have a full day of data.
-              </>
+              <>{t('logRetentionPanel.noVolumeEstimate')}</>
             )}
           </div>
 
           <div className="text-[12px] text-muted inline-flex items-start gap-1.5">
-            <InfoDot title="This bounds how long STORED log patterns are kept — a separate setting from trace retention above, and from whatever Docker's own log driver does with its own copy of your logs. Shortening this doesn't reduce Docker's own log disk usage at all." />
-            <span>Separate from trace retention — this only affects services with log storage turned on.</span>
+            <InfoDot title={t('logRetentionPanel.tooltip')} />
+            <span>{t('logRetentionPanel.separateNote')}</span>
           </div>
 
           {shortening && (
             <label className="flex items-center gap-2 text-[13px] cursor-pointer select-none">
               <input type="checkbox" checked={reclaimNow} onChange={(e) => setReclaimNow(e.target.checked)} className="accent-accent" />
-              <span className="text-ink-dim">Reclaim space immediately</span>
-              <InfoDot title="Without this, shortening retention only changes the cutoff going forward — old rows still age out on ClickHouse's own background schedule, which can take a while. Checking this forces ClickHouse to rewrite its data and drop expired rows right now instead." />
+              <span className="text-ink-dim">{t('retentionPanel.reclaimNow')}</span>
+              <InfoDot title={t('logRetentionPanel.reclaimTooltip')} />
             </label>
           )}
 
@@ -169,17 +174,19 @@ export default function LogRetentionPanel() {
               disabled={saving}
               className="text-[13px] font-semibold text-[#f5f7fc] bg-accent hover:brightness-110 rounded-md px-3.5 py-1.5 disabled:opacity-50"
             >
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('alertsSettings.saving') : t('alertsSettings.save')}
             </button>
             <button type="button" onClick={() => setEditing(false)} className="link-btn text-[13px]">
-              Cancel
+              {t('alertsSettings.cancel')}
             </button>
             {saveError && <span className="text-[13px] text-down">{saveError}</span>}
             {saveResult && !saveError && (
               <span className="text-[13px] text-up">
-                Saved.{' '}
-                {saveResult.reclaimed && 'Space reclaimed.'}
-                {saveResult.reclaimError && <span className="text-down"> Reclaim failed: {saveResult.reclaimError}</span>}
+                {t('retentionPanel.saved')}{' '}
+                {saveResult.reclaimed && t('retentionPanel.spaceReclaimed')}
+                {saveResult.reclaimError && (
+                  <span className="text-down">{t('retentionPanel.reclaimFailed', { error: saveResult.reclaimError })}</span>
+                )}
               </span>
             )}
           </div>
@@ -192,15 +199,19 @@ export default function LogRetentionPanel() {
     <div className="mb-5 border border-border rounded-lg overflow-hidden">
       <div className="px-3.5 py-2 flex items-center justify-between gap-2 flex-wrap">
         <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim inline-flex items-center gap-1.5">
-          Log-pattern retention: {currentDays} day{currentDays === 1 ? '' : 's'}
-          {dailyBytesText && <span className="normal-case font-normal text-muted">(~{dailyBytesText}/day recently)</span>}
+          {t('logRetentionPanel.headerLabel')}: {t('retentionPanel.days', { count: currentDays })}
+          {dailyBytesText && (
+            <span className="normal-case font-normal text-muted">
+              ({t('retentionPanel.recentVolumeShort', { bytes: dailyBytesText })})
+            </span>
+          )}
         </span>
         <div className="flex items-center gap-2.5">
-          <button type="button" className="link-btn text-[12px]" onClick={load} title="Refresh the volume estimate">
+          <button type="button" className="link-btn text-[12px]" onClick={load} title={t('retentionPanel.refreshTooltip')}>
             ↻
           </button>
           <button type="button" className="link-btn text-[12px]" onClick={openEditor}>
-            ⚙ Configure
+            ⚙ {t('alertsPanel.configure')}
           </button>
         </div>
       </div>

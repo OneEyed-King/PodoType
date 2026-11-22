@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api.js';
 
 // A handful of starting points, not a query library — picking one just
@@ -7,25 +8,29 @@ import { api } from '../api.js';
 // names here match ensureClickHouseSchema in server.js exactly; if that ever
 // changes, GET /api/query/tables (rendered below as the schema reference) is
 // the source of truth, not this list.
+//
+// labelKey (not a literal label) so the example's display label resolves
+// through i18n — the SQL itself stays as-is, same "code stays English"
+// convention this app's other code-shaped content already follows.
 const EXAMPLES = [
   {
-    label: 'Slowest traces (last hour)',
+    labelKey: 'exampleSlowestTraces',
     sql: `SELECT ServiceName, SpanName, Duration / 1e6 AS duration_ms, Timestamp\nFROM otel_traces\nWHERE Timestamp >= now() - INTERVAL 1 HOUR\nORDER BY Duration DESC\nLIMIT 50`,
   },
   {
-    label: 'Request count + avg duration by service (last hour)',
+    labelKey: 'exampleRequestCount',
     sql: `SELECT ServiceName, count() AS spans, avg(Duration) / 1e6 AS avg_duration_ms\nFROM otel_traces\nWHERE Timestamp >= now() - INTERVAL 1 HOUR AND ParentSpanId = ''\nGROUP BY ServiceName\nORDER BY spans DESC`,
   },
   {
-    label: 'CPU / memory / error-rate history for one service',
+    labelKey: 'exampleCpuMemHistory',
     sql: `SELECT Timestamp, CpuPercent, MemPercent, RequestsPerSec, ErrorRate\nFROM container_metrics\nWHERE ServiceName = 'your-service-name'\nORDER BY Timestamp DESC\nLIMIT 200`,
   },
   {
-    label: 'Recent log patterns containing "error" (opted-in services only)',
+    labelKey: 'exampleLogPatterns',
     sql: `SELECT Timestamp, ServiceName, Level, Pattern, Count, SampleLine\nFROM log_patterns\nWHERE Timestamp >= now() - INTERVAL 1 HOUR AND (Level = 'error' OR positionCaseInsensitive(Pattern, 'error') > 0)\nORDER BY Timestamp DESC\nLIMIT 100`,
   },
   {
-    label: 'Trace count per hour, last 24h (spot a spike)',
+    labelKey: 'exampleTracePerHour',
     sql: `SELECT toStartOfHour(Timestamp) AS hour, ServiceName, count() AS spans\nFROM otel_traces\nWHERE Timestamp >= now() - INTERVAL 24 HOUR AND ParentSpanId = ''\nGROUP BY hour, ServiceName\nORDER BY hour DESC`,
   },
 ];
@@ -71,7 +76,8 @@ function formatHistoryTime(iso) {
 }
 
 function ResultsTable({ rows }) {
-  if (rows.length === 0) return <div className="text-[13px] text-muted py-3">Query ran fine — no rows.</div>;
+  const { t } = useTranslation();
+  if (rows.length === 0) return <div className="text-[13px] text-muted py-3">{t('queryConsole.noRows')}</div>;
   const columns = Object.keys(rows[0]);
   return (
     <div className="overflow-auto max-h-[28rem] border border-border-soft rounded-md">
@@ -109,6 +115,7 @@ function ResultsTable({ rows }) {
 // this component is just a thin editor + results table over
 // POST /api/query, it enforces nothing itself.
 export default function QueryConsole({ onClose }) {
+  const { t } = useTranslation();
   const [sql, setSql] = useState(EXAMPLES[0].sql);
   const [limit, setLimit] = useState(1000);
   const [result, setResult] = useState(null); // { rows, rowCount, tookMs, sql }
@@ -179,25 +186,23 @@ export default function QueryConsole({ onClose }) {
   return (
     <div className="mb-5 border border-border rounded-lg overflow-hidden">
       <div className="px-3.5 py-2 border-b border-border-soft flex items-center justify-between">
-        <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim">
-          🔎 Query — debug your own traces/logs/metrics directly
-        </span>
-        <button type="button" className="link-btn text-muted hover:text-ink text-[15px] leading-none" onClick={onClose} title="Close">
+        <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim">{t('queryConsole.title')}</span>
+        <button type="button" className="link-btn text-muted hover:text-ink text-[15px] leading-none" onClick={onClose} title={t('queryConsole.close')}>
           ×
         </button>
       </div>
 
       <div className="px-3.5 py-3 flex flex-col gap-3">
         <div className="flex items-center gap-2 flex-wrap text-[13px]">
-          <span className="text-muted">Examples:</span>
+          <span className="text-muted">{t('queryConsole.examplesLabel')}</span>
           {EXAMPLES.map((ex) => (
             <button
-              key={ex.label}
+              key={ex.labelKey}
               type="button"
               onClick={() => setSql(ex.sql)}
               className="link-btn text-ink-dim hover:text-accent"
             >
-              {ex.label}
+              {t(`queryConsole.${ex.labelKey}`)}
             </button>
           ))}
           <span className="ml-auto flex items-center gap-3">
@@ -205,23 +210,25 @@ export default function QueryConsole({ onClose }) {
               type="button"
               onClick={() => setHistoryOpen((v) => !v)}
               className="link-btn text-ink-dim hover:text-accent"
-              title="Every query you've run in this browser, newest first — click one to load it back into the editor"
+              title={t('queryConsole.historyTooltip')}
             >
-              {historyOpen ? 'Hide history ⌃' : `History ⌄${history.length > 0 ? ` (${history.length})` : ''}`}
+              {historyOpen
+                ? t('queryConsole.historyHide')
+                : `${t('queryConsole.historyShow')}${history.length > 0 ? t('queryConsole.historyCountSuffix', { count: history.length }) : ''}`}
             </button>
             <button type="button" onClick={() => setSchemaOpen((v) => !v)} className="link-btn text-ink-dim hover:text-accent">
-              {schemaOpen ? 'Hide schema ⌃' : 'Show schema ⌄'}
+              {schemaOpen ? t('queryConsole.schemaHide') : t('queryConsole.schemaShow')}
             </button>
           </span>
         </div>
 
         {historyOpen && (
           <div className="border border-border-soft rounded-md p-2.5 text-[13px] max-h-56 overflow-auto flex flex-col gap-1">
-            {history.length === 0 && <div className="text-muted">No queries run yet in this browser.</div>}
+            {history.length === 0 && <div className="text-muted">{t('queryConsole.noQueriesYet')}</div>}
             {history.length > 0 && (
               <div className="flex justify-end">
                 <button type="button" onClick={clearHistory} className="link-btn text-muted hover:text-down text-[12px]">
-                  Clear history
+                  {t('queryConsole.clearHistory')}
                 </button>
               </div>
             )}
@@ -236,9 +243,9 @@ export default function QueryConsole({ onClose }) {
                 <div className="flex items-center justify-between gap-2 text-[11px] text-muted mb-0.5">
                   <span>{formatHistoryTime(h.ranAt)}</span>
                   {h.ok ? (
-                    <span className="text-accent">{h.rowCount} row{h.rowCount === 1 ? '' : 's'} · {h.tookMs}ms</span>
+                    <span className="text-accent">{t('queryConsole.rowsTook', { count: h.rowCount, ms: h.tookMs })}</span>
                   ) : (
-                    <span className="text-down">failed</span>
+                    <span className="text-down">{t('queryConsole.failed')}</span>
                   )}
                 </div>
                 <div className="font-mono text-ink-dim truncate">{h.sql.replace(/\s+/g, ' ')}</div>
@@ -249,8 +256,8 @@ export default function QueryConsole({ onClose }) {
 
         {schemaOpen && (
           <div className="border border-border-soft rounded-md p-2.5 text-[12px] font-mono max-h-48 overflow-auto">
-            {tablesError && <div className="text-down">Couldn't load schema: {tablesError}</div>}
-            {!tables && !tablesError && <div className="text-muted">Loading schema…</div>}
+            {tablesError && <div className="text-down">{t('queryConsole.couldntLoadSchema', { error: tablesError })}</div>}
+            {!tables && !tablesError && <div className="text-muted">{t('queryConsole.loadingSchema')}</div>}
             {tables &&
               Object.entries(tables).map(([table, columns]) => (
                 <div key={table} className="mb-2">
@@ -278,10 +285,10 @@ export default function QueryConsole({ onClose }) {
             disabled={running}
             className="text-[13px] font-semibold text-[#f5f7fc] bg-accent hover:brightness-110 rounded-md px-3.5 py-1.5 disabled:opacity-50"
           >
-            {running ? 'Running…' : 'Run (⌘/Ctrl+Enter)'}
+            {running ? t('queryConsole.running') : t('queryConsole.runButton')}
           </button>
           <label className="flex items-center gap-1.5 text-[13px] text-muted">
-            row limit
+            {t('queryConsole.rowLimitLabel')}
             <input
               type="number"
               min="1"
@@ -291,9 +298,7 @@ export default function QueryConsole({ onClose }) {
               className="w-20 bg-panel border border-border-soft rounded px-1.5 py-0.5 font-mono text-[13px] text-ink"
             />
           </label>
-          <span className="text-[12px] text-muted">
-            Read-only — SELECT/WITH only, one statement. Auto-limited unless your query already has its own LIMIT.
-          </span>
+          <span className="text-[12px] text-muted">{t('queryConsole.readOnlyNote')}</span>
         </div>
 
         {error && <div className="text-[13px] text-down font-mono whitespace-pre-wrap">{error}</div>}
@@ -301,7 +306,7 @@ export default function QueryConsole({ onClose }) {
         {result && (
           <>
             <div className="text-[12px] text-muted font-mono">
-              {result.rowCount} row{result.rowCount === 1 ? '' : 's'} · {result.tookMs}ms
+              {t('queryConsole.rowsTook', { count: result.rowCount, ms: result.tookMs })}
             </div>
             <ResultsTable rows={result.rows} />
           </>

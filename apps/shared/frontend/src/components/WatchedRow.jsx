@@ -1,18 +1,19 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import StatusPill, { statusPillProps, tracePillProps } from './StatusPill.jsx';
 import { api } from '../api.js';
 
-function sourceLabel(svc) {
+function sourceLabelKey(svc) {
   switch (svc.upSource) {
     case 'check':
-      return 'manual check';
+      return 'watchedRow.sourceCheck';
     case 'docker-health':
     case 'docker-health-starting':
-      return 'Docker HEALTHCHECK';
+      return 'watchedRow.sourceDockerHealth';
     case 'docker-state':
-      return 'container state';
+      return 'watchedRow.sourceDockerState';
     case 'checking':
-      return 'check pending';
+      return 'watchedRow.sourceCheckPending';
     default:
       return null;
   }
@@ -33,6 +34,7 @@ export default function WatchedRow({
   onStopWatching,
   onOpenDetail,
 }) {
+  const { t } = useTranslation();
   // Clear-data (product backlog item #12) — deletes this service's own
   // stored spans/logs/metrics, separate from onStopWatching above (which
   // only stops watching it, doesn't touch what's already stored). Local
@@ -42,9 +44,7 @@ export default function WatchedRow({
   const [clearedData, setClearedData] = useState(false);
 
   function handleClearData() {
-    const ok = window.confirm(
-      `Clear all stored spans, logs and metrics history for "${svc.name}"? This can't be undone.`
-    );
+    const ok = window.confirm(t('watchedRow.confirmClear', { name: svc.name }));
     if (!ok) return;
     setClearingData(true);
     setClearedData(false);
@@ -54,13 +54,14 @@ export default function WatchedRow({
         setClearedData(true);
         setTimeout(() => setClearedData(false), 4000);
       })
-      .catch((err) => window.alert(`Could not clear data for "${svc.name}": ${err.message}`))
+      .catch((err) => window.alert(t('watchedRow.clearFailed', { name: svc.name, error: err.message })))
       .finally(() => setClearingData(false));
   }
 
   const status = statusPillProps(svc);
   const trace = tracePillProps(svc.trace);
-  const source = sourceLabel(svc);
+  const sourceKey = sourceLabelKey(svc);
+  const source = sourceKey ? t(sourceKey) : null;
 
   // Left border color -- same severity read AttentionBanner/StatusSummaryStrip
   // already apply, just as a persistent visual instead of text: down beats
@@ -78,21 +79,23 @@ export default function WatchedRow({
   const quickBits = [];
   if (source) quickBits.push(source);
   if (svc.trace && svc.trace.p95Ms !== null && svc.trace.p95Ms !== undefined) {
-    quickBits.push(`trace p95 ~${Math.round(svc.trace.p95Ms)}ms`);
+    quickBits.push(t('watchedRow.tracePrefix', { ms: Math.round(svc.trace.p95Ms) }));
   }
   if (svc.checkResponseTimeMs !== null && svc.checkResponseTimeMs !== undefined) {
-    quickBits.push(`check ~${svc.checkResponseTimeMs}ms`);
+    quickBits.push(t('watchedRow.checkPrefix', { ms: svc.checkResponseTimeMs }));
   }
   if (svc.metrics) {
     if (svc.metrics.recognized) {
       const rate =
-        svc.metrics.errorRate !== null ? `${Math.round(svc.metrics.errorRate * 100)}% errors` : 'no errors';
-      quickBits.push(`${svc.metrics.matchedLines}/${svc.metrics.sampledLines} logs, ${rate}`);
+        svc.metrics.errorRate !== null
+          ? t('watchedRow.errorsPct', { pct: Math.round(svc.metrics.errorRate * 100) })
+          : t('watchedRow.noErrors');
+      quickBits.push(t('watchedRow.logsSummary', { matched: svc.metrics.matchedLines, sampled: svc.metrics.sampledLines, rate }));
     } else {
-      quickBits.push('logs: format not recognized');
+      quickBits.push(t('watchedRow.logsUnrecognized'));
     }
   }
-  if (svc.checkError) quickBits.push(`check error: ${svc.checkError}`);
+  if (svc.checkError) quickBits.push(t('watchedRow.checkErrorPrefix', { error: svc.checkError }));
 
   return (
     <div className={`bg-panel border border-border-soft border-l-4 ${borderTone} rounded-lg`}>
@@ -103,9 +106,9 @@ export default function WatchedRow({
         {isSlowest && (
           <span
             className="text-down font-bold text-[11px] shrink-0"
-            title="Highest trace p95 latency among your watched services right now"
+            title={t('watchedRow.slowestTitle')}
           >
-            SLOWEST
+            {t('watchedRow.slowest')}
           </span>
         )}
 
@@ -117,19 +120,19 @@ export default function WatchedRow({
 
         <div className="flex items-center gap-3 ml-auto shrink-0">
           <button type="button" onClick={onOpenDetail} className="link-btn text-accent">
-            View details →
+            {t('watchedRow.viewDetails')}
           </button>
           <button
             type="button"
             onClick={handleClearData}
             disabled={clearingData}
-            title="Delete this service's own stored spans, logs and metrics history"
+            title={t('watchedRow.clearDataTitle')}
             className="link-btn opacity-50 hover:opacity-100 text-[16px] disabled:opacity-30"
           >
-            {clearingData ? 'Clearing…' : clearedData ? '✓ Cleared' : 'Clear data'}
+            {clearingData ? t('watchedRow.clearing') : clearedData ? t('watchedRow.cleared') : t('watchedRow.clearData')}
           </button>
           <button type="button" onClick={onStopWatching} className="link-btn opacity-50 hover:opacity-100 text-[16px]">
-            Stop watching
+            {t('watchedRow.stopWatching')}
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api, DEPLOY_MODE } from '../api.js';
 import { formatRangeMinutes } from './TimeRangePicker.jsx';
 import InfoDot from './InfoDot.jsx';
@@ -73,6 +74,7 @@ function StatTile({ label, value, sub, warn, info }) {
 // once, and that number is what shows from then on, with a way back to
 // the auto-estimate.
 function CostTile({ estimatedUsd, estimatedSub, override, onSave, onClear, saving }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [amount, setAmount] = useState(override ? String(override.monthlyUsd) : '');
   const [label, setLabel] = useState(override ? override.instanceLabel || '' : '');
@@ -96,14 +98,14 @@ function CostTile({ estimatedUsd, estimatedSub, override, onSave, onClear, savin
         onSubmit={submit}
         className="flex-1 min-w-[220px] border border-accent rounded-lg px-4 py-3.5 flex flex-col gap-2"
       >
-        <div className="font-mono text-[11px] text-muted uppercase tracking-wide">Actual monthly cost</div>
+        <div className="font-mono text-[11px] text-muted uppercase tracking-wide">{t('usageStats.actualMonthlyCost')}</div>
         <input
           type="number"
           min="0"
           step="0.01"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          placeholder="e.g. 12.00"
+          placeholder={t('usageStats.amountPlaceholder')}
           autoFocus
           className="bg-panel-raised border border-border rounded-md px-2.5 py-1.5 text-[14px] text-ink font-mono"
         />
@@ -111,7 +113,7 @@ function CostTile({ estimatedUsd, estimatedSub, override, onSave, onClear, savin
           type="text"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          placeholder="Instance type (optional, e.g. AWS t3.medium)"
+          placeholder={t('usageStats.instanceLabelPlaceholder')}
           className="bg-panel-raised border border-border rounded-md px-2.5 py-1.5 text-[13px] text-ink"
         />
         <div className="flex items-center gap-2">
@@ -120,10 +122,10 @@ function CostTile({ estimatedUsd, estimatedSub, override, onSave, onClear, savin
             disabled={saving}
             className="text-[12px] font-semibold rounded-md px-3 py-1 bg-accent text-[#f5f7fc] hover:brightness-110 disabled:opacity-50"
           >
-            Save
+            {t('alertsSettings.save')}
           </button>
           <button type="button" className="link-btn text-[12px]" onClick={() => setEditing(false)}>
-            Cancel
+            {t('alertsSettings.cancel')}
           </button>
         </div>
       </form>
@@ -141,20 +143,20 @@ function CostTile({ estimatedUsd, estimatedSub, override, onSave, onClear, savin
     <div className="flex-1 min-w-[170px] border border-border rounded-lg px-4 py-3.5">
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <div className="font-mono text-[11px] text-muted uppercase tracking-wide">
-          {usingOverride ? 'Host cost' : 'Est. host cost'}
+          {usingOverride ? t('usageStats.hostCost') : t('usageStats.estHostCost')}
         </div>
         <button type="button" className="link-btn text-[11px]" onClick={startEdit}>
-          {usingOverride ? 'edit' : 'set actual cost'}
+          {usingOverride ? t('usageStats.edit') : t('usageStats.setActualCost')}
         </button>
       </div>
       <div className="text-[28px] font-bold leading-none text-ink">{value}</div>
       <div className="text-[12px] text-ink-dim mt-1.5">
         {usingOverride ? (
           <>
-            {override.instanceLabel || 'entered manually'}
+            {override.instanceLabel || t('usageStats.enteredManually')}
             {' · '}
             <button type="button" className="link-btn" onClick={onClear} disabled={saving}>
-              use auto-estimate instead
+              {t('usageStats.useAutoEstimate')}
             </button>
           </>
         ) : (
@@ -172,6 +174,7 @@ function CostTile({ estimatedUsd, estimatedSub, override, onSave, onClear, savin
 // looking for — see the request this was built from: caps and cost
 // visible in real numbers, not small print.
 export default function UsageStats({ rangeMinutes, rangeLabel }) {
+  const { t } = useTranslation();
   const [hostStats, setHostStats] = useState(null);
   const [usage, setUsage] = useState(null);
   const [usageError, setUsageError] = useState(null);
@@ -271,6 +274,8 @@ export default function UsageStats({ rangeMinutes, rangeLabel }) {
   const nothingToShow = costUsd === null && !costOverride && !(HOSTED && usage) && !rangeUsage;
   if (nothingToShow && !usageError && !rangeUsageError) return null;
 
+  const resolvedRangeLabel = rangeLabel || formatRangeMinutes(rangeMinutes);
+
   return (
     <div className="flex flex-wrap gap-3 mb-5">
       {(costUsd !== null || costOverride) && (
@@ -278,7 +283,7 @@ export default function UsageStats({ rangeMinutes, rangeLabel }) {
           estimatedUsd={costUsd}
           estimatedSub={
             current
-              ? `${current.cpu.cores} vCPU · ${fmtGb(current.memory.totalBytes)} RAM — reference price for a similarly-sized VPS, not your actual bill`
+              ? t('usageStats.vcpuRamRef', { cores: current.cpu.cores, ram: fmtGb(current.memory.totalBytes) })
               : null
           }
           override={costOverride}
@@ -291,19 +296,19 @@ export default function UsageStats({ rangeMinutes, rangeLabel }) {
       {rangeUsage && (
         <>
           <StatTile
-            label="Spans in range"
+            label={t('usageStats.spansInRange')}
             value={fmtCompact(rangeUsage.spansInRange)}
-            sub={`across everything stored in the last ${rangeLabel || formatRangeMinutes(rangeMinutes)}`}
+            sub={t('usageStats.spansInRangeSub', { range: resolvedRangeLabel })}
           />
           <StatTile
-            label="Ingest rate (spans/sec)"
+            label={t('usageStats.ingestRate')}
             value={`${
               rangeUsage.ingestRatePerSecInRange >= 10
                 ? Math.round(rangeUsage.ingestRatePerSecInRange)
                 : rangeUsage.ingestRatePerSecInRange.toFixed(1)
             }/s`}
-            sub={`averaged over the last ${rangeLabel || formatRangeMinutes(rangeMinutes)} — pick a wider range above to smooth out short bursts/lulls`}
-            info="This is SPANS per second, not requests — one traced request usually produces more than one span (the request itself, plus any downstream/DB/internal calls Beyla captured alongside it), so this number naturally runs higher than your requests/sec. It's also an average over whichever range is selected above, not a live instant reading — if traffic was heavier earlier in a longer window than it is right now, the cumulative 'Spans this month' total can grow faster than this rate alone would suggest. Widen the range to see a more representative average."
+            sub={t('usageStats.ingestRateSub', { range: resolvedRangeLabel })}
+            info={t('usageStats.ingestRateInfo')}
           />
         </>
       )}
@@ -311,15 +316,15 @@ export default function UsageStats({ rangeMinutes, rangeLabel }) {
       {HOSTED && usage && (
         <>
           <StatTile
-            label="Spans this month"
+            label={t('usageStats.spansThisMonth')}
             value={fmtCompact(usage.spansThisMonth)}
-            sub={usage.spansCap ? `of ${fmtCompact(usage.spansCap)} on the free tier` : 'unlimited'}
+            sub={usage.spansCap ? t('usageStats.ofCapFreeTier', { cap: fmtCompact(usage.spansCap) }) : t('usageStats.unlimited')}
             warn={overCap}
           />
-          <StatTile label="Data ingested" value={fmtGb(usage.estimatedBytesThisMonth)} sub="this calendar month, estimated" />
+          <StatTile label={t('usageStats.dataIngested')} value={fmtGb(usage.estimatedBytesThisMonth)} sub={t('usageStats.thisMonthEstimated')} />
           {capPercent !== null && (
             <div className="flex-1 min-w-[170px] border border-border rounded-lg px-4 py-3.5">
-              <div className="font-mono text-[11px] text-muted uppercase tracking-wide mb-1.5">Free tier usage</div>
+              <div className="font-mono text-[11px] text-muted uppercase tracking-wide mb-1.5">{t('usageStats.freeTierUsage')}</div>
               <div className="h-2.5 rounded-full bg-panel-raised overflow-hidden mb-1.5">
                 <div
                   className={`h-full rounded-full ${overCap ? 'bg-down' : 'bg-accent'}`}
@@ -327,17 +332,15 @@ export default function UsageStats({ rangeMinutes, rangeLabel }) {
                 />
               </div>
               <div className={`text-[13px] ${overCap ? 'text-down font-semibold' : 'text-ink-dim'}`}>
-                {overCap
-                  ? 'Over the free-tier cap — new spans are being dropped until next month.'
-                  : `${capPercent}% used this month`}
+                {overCap ? t('usageStats.overCapMsg') : t('usageStats.percentUsed', { pct: capPercent })}
               </div>
             </div>
           )}
         </>
       )}
 
-      {usageError && <div className="text-[13px] text-down">Couldn't load usage — {usageError}</div>}
-      {rangeUsageError && <div className="text-[13px] text-down">Couldn't load range usage — {rangeUsageError}</div>}
+      {usageError && <div className="text-[13px] text-down">{t('usageStats.couldntLoadUsage', { error: usageError })}</div>}
+      {rangeUsageError && <div className="text-[13px] text-down">{t('usageStats.couldntLoadRangeUsage', { error: rangeUsageError })}</div>}
     </div>
   );
 }

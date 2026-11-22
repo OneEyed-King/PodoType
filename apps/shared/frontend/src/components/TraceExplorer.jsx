@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import TraceWaterfall from './TraceWaterfall.jsx';
 import CriticalPathStrip from './CriticalPathStrip.jsx';
 import TraceLogsPanel from './TraceLogsPanel.jsx';
@@ -91,6 +92,7 @@ function formatTraceTime(startTimeUnixNano) {
 // its span breakdown — that's a real choice (which request?), not
 // busywork, so it stays click-to-select.
 export default function TraceExplorer({ serviceName }) {
+  const { t } = useTranslation();
   const [traces, setTraces] = useState(null);
   const [hiddenHealthCheckCount, setHiddenHealthCheckCount] = useState(0);
   const [tracesError, setTracesError] = useState(null);
@@ -257,78 +259,75 @@ export default function TraceExplorer({ serviceName }) {
     <div>
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <div className="font-mono text-[11px] text-muted uppercase tracking-wide">
-          Traces from the last {formatRangeMinutes(rangeMinutes)}, live — click one to see which span was slow
+          {t('traceExplorer.tracesFromLast', { range: formatRangeMinutes(rangeMinutes) })}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <TimeRangePicker minutes={rangeMinutes} onChange={selectRange} allowLive={false} />
           <label className="inline-flex items-center gap-1 font-mono text-[11px] text-muted cursor-pointer select-none">
             <input type="checkbox" checked={showHealthChecks} onChange={toggleShowHealthChecks} className="accent-accent" />
-            show health checks
+            {t('traceExplorer.showHealthChecks')}
           </label>
           <button
             type="button"
             className="link-btn text-[12px]"
             onClick={refreshTraces}
-            title="Fetch now and un-clear anything hidden by Clear"
+            title={t('traceExplorer.refreshTooltip')}
           >
-            Refresh
+            {t('traceExplorer.refresh')}
           </button>
           <button
             type="button"
             className="link-btn text-[12px]"
             onClick={clearTraces}
-            title="Hide what's currently listed — stays live, new traces still appear as they happen"
+            title={t('traceExplorer.clearTooltip')}
           >
-            Clear
+            {t('traceExplorer.clear')}
           </button>
         </div>
       </div>
       {!showHealthChecks && hiddenHealthCheckCount > 0 && (
         <div className="text-[12px] text-muted mb-1.5">
-          {hiddenHealthCheckCount} health-check trace{hiddenHealthCheckCount === 1 ? '' : 's'} hidden (/actuator/health &amp;
-          similar) so real requests aren't crowded out
+          {t('traceExplorer.hiddenHealthChecks', { count: hiddenHealthCheckCount })}
         </div>
       )}
 
       {tracesError && <div className="text-[13px] text-down">{tracesError}</div>}
-      {!tracesError && traces === null && <div className="text-[13px] text-muted">loading…</div>}
+      {!tracesError && traces === null && <div className="text-[13px] text-muted">{t('traceExplorer.loading')}</div>}
       {!tracesError && traces !== null && visibleTraces.length === 0 && (
         <div className="text-[13px] text-muted">
-          {clearedBeforeNs !== null
-            ? 'Cleared — still live, new traces will appear here as they come in.'
-            : 'No recent traces to inspect yet.'}
+          {clearedBeforeNs !== null ? t('traceExplorer.clearedMessage') : t('traceExplorer.noRecentTraces')}
         </div>
       )}
 
       {visibleTraces && visibleTraces.length > 0 && (
         <div className="flex flex-col gap-0.5">
-          {visibleTraces.slice(0, visibleCount).map((t, i) => (
+          {visibleTraces.slice(0, visibleCount).map((t2, i) => (
             <button
-              key={t.traceId}
+              key={t2.traceId}
               type="button"
-              onClick={() => selectTrace(t.traceId)}
-              title={`${t.rootService || ''} ${t.rootOperationLabel || t.rootOperation || ''}`.trim()}
+              onClick={() => selectTrace(t2.traceId)}
+              title={`${t2.rootService || ''} ${t2.rootOperationLabel || t2.rootOperation || ''}`.trim()}
               className={`text-left px-2 py-1 rounded font-mono text-[13px] border ${
-                selectedTraceId === t.traceId ? 'border-accent bg-accent/5' : 'border-transparent hover:border-border-soft'
+                selectedTraceId === t2.traceId ? 'border-accent bg-accent/5' : 'border-transparent hover:border-border-soft'
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                {i === 0 && <span className="text-down font-bold text-[11px] shrink-0">SLOWEST</span>}
-                {t.isError && <span className="pill pill-down text-[11px] shrink-0">error</span>}
+                {i === 0 && <span className="text-down font-bold text-[11px] shrink-0">{t('traceExplorer.slowest')}</span>}
+                {t2.isError && <span className="pill pill-down text-[11px] shrink-0">{t('traceExplorer.error')}</span>}
                 <span className="text-ink-dim [overflow-wrap:anywhere] leading-snug">
                   {/* Service and operation together, always — previously this showed
                       ONLY the operation (falling back to service only when no operation
                       existed), so every row looked the same regardless of which service
                       it belonged to unless you hovered for the title tooltip. */}
-                  {t.rootService && <span className="text-muted">{t.rootService}</span>}
-                  {t.rootService && (t.rootOperationLabel || t.rootOperation) ? ' · ' : ''}
-                  {t.rootOperationLabel || t.rootOperation}
+                  {t2.rootService && <span className="text-muted">{t2.rootService}</span>}
+                  {t2.rootService && (t2.rootOperationLabel || t2.rootOperation) ? ' · ' : ''}
+                  {t2.rootOperationLabel || t2.rootOperation}
                 </span>
                 <span className="text-muted ml-auto shrink-0 flex items-center gap-2">
-                  {formatTraceTime(t.startTimeUnixNano) && (
-                    <span className="text-[11px] opacity-70">{formatTraceTime(t.startTimeUnixNano)}</span>
+                  {formatTraceTime(t2.startTimeUnixNano) && (
+                    <span className="text-[11px] opacity-70">{formatTraceTime(t2.startTimeUnixNano)}</span>
                   )}
-                  {t.durationMs !== null ? `${Math.round(t.durationMs)}ms` : '—'}
+                  {t2.durationMs !== null ? `${Math.round(t2.durationMs)}ms` : '—'}
                 </span>
               </div>
             </button>
@@ -339,8 +338,10 @@ export default function TraceExplorer({ serviceName }) {
               className="link-btn text-[12px] self-start mt-1"
               onClick={() => setVisibleCount((n) => n + TRACE_LIST_PAGE_SIZE)}
             >
-              Show {Math.min(TRACE_LIST_PAGE_SIZE, visibleTraces.length - visibleCount)} more (
-              {visibleTraces.length - visibleCount} hidden)
+              {t('traceExplorer.showMore', {
+                show: Math.min(TRACE_LIST_PAGE_SIZE, visibleTraces.length - visibleCount),
+                hidden: visibleTraces.length - visibleCount,
+              })}
             </button>
           )}
         </div>
@@ -356,7 +357,7 @@ export default function TraceExplorer({ serviceName }) {
               <TraceLogsPanel traceId={selectedTraceId} />
             </>
           )}
-          {!selectedDetail && <div className="text-[13px] text-muted mt-2">loading spans…</div>}
+          {!selectedDetail && <div className="text-[13px] text-muted mt-2">{t('traceExplorer.loadingSpans')}</div>}
         </>
       )}
     </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 // A minimal Gantt-style waterfall: one bar per span, positioned by its
 // offset from the trace's start and sized by its own duration, both as a
@@ -59,6 +60,7 @@ function buildForest(spans) {
 // could ever see about a span. Collapsed into this one small component so
 // TraceWaterfall itself doesn't have to know about attribute formatting.
 function SpanAttributesDrawer({ span, onClose }) {
+  const { t } = useTranslation();
   const attrs = span.attributes && typeof span.attributes === 'object' ? span.attributes : {};
   const keys = Object.keys(attrs).sort();
   return (
@@ -68,36 +70,40 @@ function SpanAttributesDrawer({ span, onClose }) {
           <span className="text-ink font-semibold">{span.service}</span>{' '}
           <span className="text-ink-dim">· {span.operation}</span>
           {span.isError && (
-            <span className="ml-1.5 pill pill-down text-[11px] align-middle">{span.httpStatusCode || 'error'}</span>
+            <span className="ml-1.5 pill pill-down text-[11px] align-middle">
+              {span.httpStatusCode || t('traceWaterfall.error')}
+            </span>
           )}
         </div>
         <button type="button" className="link-btn text-[12px] shrink-0" onClick={onClose}>
-          Close ✕
+          {t('traceWaterfall.close')}
         </button>
       </div>
       <div className="px-2.5 py-2 flex flex-col gap-2">
         <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-muted">
           <span>
-            span <span className="text-ink-dim">{span.spanId.slice(0, 16)}…</span>
+            {t('traceWaterfall.spanLabel')} <span className="text-ink-dim">{span.spanId.slice(0, 16)}…</span>
           </span>
           <span>
-            duration <span className="text-ink-dim">{Math.round(span.durationMs)}ms</span>
+            {t('traceWaterfall.durationLabel')}{' '}
+            <span className="text-ink-dim">{Math.round(span.durationMs)}ms</span>
           </span>
           <span>
-            offset <span className="text-ink-dim">+{Math.round(span.offsetMs)}ms</span>
+            {t('traceWaterfall.offsetLabel')} <span className="text-ink-dim">+{Math.round(span.offsetMs)}ms</span>
           </span>
           {span.parentSpanId && (
             <span>
-              parent <span className="text-ink-dim">{span.parentSpanId.slice(0, 16)}…</span>
+              {t('traceWaterfall.parentLabel')}{' '}
+              <span className="text-ink-dim">{span.parentSpanId.slice(0, 16)}…</span>
             </span>
           )}
         </div>
         <div>
           <div className="font-mono text-[11px] text-muted uppercase tracking-wide mb-1">
-            Attributes {keys.length > 0 && `(${keys.length})`}
+            {t('traceWaterfall.attributes')} {keys.length > 0 && `(${keys.length})`}
           </div>
           {keys.length === 0 ? (
-            <div className="text-[12px] text-muted">No span attributes recorded for this one.</div>
+            <div className="text-[12px] text-muted">{t('traceWaterfall.noAttributes')}</div>
           ) : (
             <div className="flex flex-col gap-0.5 max-h-[220px] overflow-y-auto">
               {keys.map((k) => (
@@ -115,6 +121,7 @@ function SpanAttributesDrawer({ span, onClose }) {
 }
 
 export default function TraceWaterfall({ detail }) {
+  const { t } = useTranslation();
   // Which span's attribute drawer is open, if any — reset per trace (via
   // `key` on this component at the call site would also work, but tracking
   // it here means re-selecting the same span across a live-refreshed
@@ -122,16 +129,18 @@ export default function TraceWaterfall({ detail }) {
   const [selectedSpanId, setSelectedSpanId] = useState(null);
 
   if (!detail || detail.spans.length === 0) {
-    return <div className="text-[13px] text-muted mt-2">No span data for this trace.</div>;
+    return <div className="text-[13px] text-muted mt-2">{t('traceWaterfall.noSpanData')}</div>;
   }
 
   if (detail.spans.length === 1) {
     const only = detail.spans[0];
     return (
       <div className="mt-2 text-[13px] text-muted">
-        Single-span trace — nothing to compare against. This usually means a background call with no downstream
-        calls of its own (e.g. a connection-pool keepalive), not a full request: {only.service} · {only.operation} ·{' '}
-        {Math.round(only.durationMs)}ms.
+        {t('traceWaterfall.singleSpanTrace', {
+          service: only.service,
+          operation: only.operation,
+          duration: Math.round(only.durationMs),
+        })}
       </div>
     );
   }
@@ -150,10 +159,15 @@ export default function TraceWaterfall({ detail }) {
   return (
     <div className="mt-2 flex flex-col gap-1.5">
       <div className="font-mono text-[12px] text-muted">
-        trace {detail.traceId.slice(0, 12)}… · {Math.round(detail.durationMs)}ms total
-        {serviceCount > 1 ? ` · crosses ${serviceCount} services` : ''}
-        {detail.spanCount > detail.spans.length ? ` · showing ${detail.spans.length}/${detail.spanCount} spans` : ''}
-        <span className="text-ink-dim"> · click a span for its attributes</span>
+        {t('traceWaterfall.traceSummary', {
+          traceId: detail.traceId.slice(0, 12),
+          duration: Math.round(detail.durationMs),
+        })}
+        {serviceCount > 1 ? t('traceWaterfall.crossesServices', { count: serviceCount }) : ''}
+        {detail.spanCount > detail.spans.length
+          ? t('traceWaterfall.showingSpans', { shown: detail.spans.length, total: detail.spanCount })
+          : ''}
+        <span className="text-ink-dim">{t('traceWaterfall.clickHint')}</span>
       </div>
       {ordered.map(({ span: s, depth }, i) => {
         const leftPct = total > 0 ? (s.offsetMs / total) * 100 : 0;
@@ -182,7 +196,7 @@ export default function TraceWaterfall({ detail }) {
                 <span className="text-ink-dim">· {s.operation}</span>
                 {s.isError && (
                   <span className="ml-1.5 pill pill-down text-[11px] align-middle">
-                    {s.httpStatusCode || 'error'}
+                    {s.httpStatusCode || t('traceWaterfall.error')}
                   </span>
                 )}
               </span>
@@ -200,9 +214,8 @@ export default function TraceWaterfall({ detail }) {
         );
       })}
       <div className="font-mono text-[11px] text-muted mt-0.5">
-        red bar = the single slowest span in this trace, or one that returned an error — that's usually where to
-        start looking.
-        {serviceCount > 1 ? ' Highlighted service names mark where the call crossed into another service.' : ''}
+        {t('traceWaterfall.legendSlowest')}
+        {serviceCount > 1 ? t('traceWaterfall.legendCrossService') : ''}
       </div>
       {selectedSpan && <SpanAttributesDrawer span={selectedSpan} onClose={() => setSelectedSpanId(null)} />}
     </div>

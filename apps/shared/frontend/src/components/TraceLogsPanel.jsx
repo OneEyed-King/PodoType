@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api.js';
 
 // The thread's other recurring ask: "correlated logs that repair broken
@@ -10,6 +11,7 @@ import { api } from '../api.js';
 // this makes (trace service name == container/log name) and where that
 // can be wrong.
 export default function TraceLogsPanel({ traceId }) {
+  const { t } = useTranslation();
   const [state, setState] = useState(null);
   const [open, setOpen] = useState(false);
 
@@ -39,17 +41,17 @@ export default function TraceLogsPanel({ traceId }) {
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between text-[12px] font-bold uppercase tracking-wider text-ink-dim"
       >
-        <span>Logs during this trace</span>
-        <span className="font-mono text-[11px] text-muted normal-case">{open ? 'hide' : 'show'}</span>
+        <span>{t('traceLogsPanel.title')}</span>
+        <span className="font-mono text-[11px] text-muted normal-case">{open ? t('traceLogsPanel.hide') : t('traceLogsPanel.show')}</span>
       </button>
       {open && (
         <div className="mt-2">
-          {!state && <div className="text-[12px] text-muted">loading…</div>}
+          {!state && <div className="text-[12px] text-muted">{t('traceLogsPanel.loading')}</div>}
           {state && !state.available && (
-            <div className="text-[12px] text-muted">no logs found in this trace's window</div>
+            <div className="text-[12px] text-muted">{t('traceLogsPanel.noLogsFound')}</div>
           )}
           {state && state.available && state.lines.length === 0 && (
-            <div className="text-[12px] text-muted">no matching log lines in this trace's time window</div>
+            <div className="text-[12px] text-muted">{t('traceLogsPanel.noMatchingLines')}</div>
           )}
           {state && state.available && state.lines.length > 0 && (
             <div className="font-mono text-[11px] leading-relaxed max-h-64 overflow-y-auto space-y-0.5">

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import InfoDot from './InfoDot.jsx';
 import TraceExplorer from './TraceExplorer.jsx';
 
@@ -17,6 +18,7 @@ import TraceExplorer from './TraceExplorer.jsx';
 // window looked exactly like "tracing turned itself off and needs setup
 // again." It doesn't, and can't — there's nothing to turn off here.
 export default function BeylaPanel({ svc, expanded, onToggleExpanded }) {
+  const { t } = useTranslation();
   const trace = svc.trace;
   const hasBeylaData = Boolean(trace && trace.source === 'beyla');
   const otherwiseShowingAgentData = Boolean(trace && trace.source === 'agent');
@@ -26,16 +28,16 @@ export default function BeylaPanel({ svc, expanded, onToggleExpanded }) {
     <div className="bg-panel-recessed border border-border-soft rounded-md overflow-hidden">
       <div className="flex items-center justify-between px-2.5 py-2 border-b border-border-soft text-[12px] font-bold uppercase tracking-wider text-muted">
         <span className="inline-flex items-center gap-1.5">
-          eBPF (Beyla)
-          <InfoDot title="Runs automatically for every container, no setup here — a shared host-wide watcher (see docker-compose.yml) captures RED metrics and real OTLP spans with nothing installed inside any of your services. Spans are shallower (process-boundary, not code-level) than the OTel agent's, and it needs a real Linux kernel with eBPF/BTF support — it won't do much on stock Docker Desktop. This panel goes quiet whenever there's been no traffic in the last few minutes, or when the OTel agent below is also enabled and showing its own (deeper) data instead — neither means this stopped working." />
+          {t('beylaPanel.title')}
+          <InfoDot title={t('beylaPanel.tooltip')} />
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="font-mono text-[11px] text-accent">automatic</span>
+          <span className="font-mono text-[11px] text-accent">{t('beylaPanel.automatic')}</span>
           {hasBeylaData && (
             <button
               type="button"
               onClick={onToggleExpanded}
-              title={expanded ? 'Collapse' : 'Expand'}
+              title={expanded ? t('beylaPanel.collapse') : t('beylaPanel.expand')}
               className={`link-btn transition-transform ${expanded ? 'rotate-180 text-accent' : ''}`}
             >
               ⌄
@@ -46,17 +48,11 @@ export default function BeylaPanel({ svc, expanded, onToggleExpanded }) {
 
       <div className="px-2.5 py-2">
         {otherwiseShowingAgentData && (
-          <div className="text-[13px] text-muted">
-            This service's own OpenTelemetry agent is enabled and reporting — see the Tracing panel for its spans. eBPF keeps
-            watching in the background either way, nothing to configure here.
-          </div>
+          <div className="text-[13px] text-muted">{t('beylaPanel.agentShowing')}</div>
         )}
 
         {!otherwiseShowingAgentData && !hasBeylaData && (
-          <div className="text-[13px] text-muted">
-            No spans in the last few minutes — normal if this service has been quiet. Nothing to configure; this appears on
-            its own the moment traffic hits it.
-          </div>
+          <div className="text-[13px] text-muted">{t('beylaPanel.noSpansYet')}</div>
         )}
 
         {!otherwiseShowingAgentData && hasBeylaData && (
@@ -64,7 +60,7 @@ export default function BeylaPanel({ svc, expanded, onToggleExpanded }) {
             serviceName={svc.name}
             p95Text={p95Text}
             slow={Boolean(trace.slow)}
-            statusText={trace.status === 'recent' ? 'sampled' : 'no recent traces'}
+            statusText={trace.status === 'recent' ? t('beylaPanel.sampled') : t('beylaPanel.noRecentTraces')}
             expanded={expanded}
           />
         )}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api.js';
 
 // The recurring Reddit ask: "does one real problem show up as one
@@ -13,6 +14,7 @@ import { api } from '../api.js';
 // is the ancestry chain of the last-finishing span, not a full
 // concurrent-gap-analysis critical path.
 export default function CriticalPathStrip({ traceId }) {
+  const { t } = useTranslation();
   const [state, setState] = useState(null);
 
   useEffect(() => {
@@ -38,8 +40,8 @@ export default function CriticalPathStrip({ traceId }) {
   return (
     <div className="mb-3 border border-border rounded-lg px-3.5 py-2.5">
       <div className="flex items-center justify-between gap-2 mb-2">
-        <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim">Critical path</span>
-        <span className="font-mono text-[11px] text-muted">approximate</span>
+        <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim">{t('criticalPath.title')}</span>
+        <span className="font-mono text-[11px] text-muted">{t('criticalPath.approximate')}</span>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         {state.chain.map((hop, i) => (
@@ -57,9 +59,7 @@ export default function CriticalPathStrip({ traceId }) {
           </div>
         ))}
       </div>
-      <div className="text-[11px] text-muted mt-2">
-        The chain of calls still running when this request finally finished — not every span that ran, just the ones on the hook for the total time.
-      </div>
+      <div className="text-[11px] text-muted mt-2">{t('criticalPath.footnote')}</div>
     </div>
   );
 }

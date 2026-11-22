@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api.js';
 
 // Exports the Overview page as a downloadable Markdown report (product
@@ -12,6 +13,11 @@ import { api } from '../api.js';
 // and rangeMinutes/rangeLabel App.jsx already passes into OverviewSummary
 // and IncidentPanel, so the numbers in the report always match what's on
 // screen.
+//
+// The generated report itself (buildMarkdown below) stays in English —
+// it's a downloadable data export, same convention as this app's other
+// code/data-shaped content (terminal commands, YAML snippets) rather than
+// UI prose. Only the on-screen button/error text is translated.
 function fmtPct(v) {
   return v === null || v === undefined ? '—' : `${(v * 100).toFixed(1)}%`;
 }
@@ -87,6 +93,7 @@ function buildMarkdown({ services, rangeMinutes, rangeLabel, alerts }) {
 }
 
 export default function OverviewExportButton({ services, rangeMinutes, rangeLabel }) {
+  const { t } = useTranslation();
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -121,7 +128,7 @@ export default function OverviewExportButton({ services, rangeMinutes, rangeLabe
         disabled={exporting}
         className="inline-flex items-center gap-1.5 text-[13px] font-semibold rounded-md px-3.5 py-1.5 border text-ink bg-panel-raised border-border hover:border-accent hover:text-accent disabled:opacity-50"
       >
-        {exporting ? 'Exporting…' : '⭳ Export report'}
+        {exporting ? t('overviewExport.exporting') : t('overviewExport.exportReport')}
       </button>
       {error && <span className="text-[12px] text-down">{error}</span>}
     </div>

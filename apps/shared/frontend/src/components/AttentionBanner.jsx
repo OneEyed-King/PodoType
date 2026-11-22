@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 // Down services and very-slow traces surfaced above everything else — the
 // two situations worth interrupting a glance-over for. Dismissing an item
@@ -7,6 +8,7 @@ import { useState } from 'react';
 // after recovering — this is a "seen it, move on for now" ack, not a
 // permanent silence.
 export default function AttentionBanner({ statusServices, slowThresholdMs, storage }) {
+  const { t } = useTranslation();
   const [dismissed, setDismissed] = useState(() => new Set());
 
   const issues = [];
@@ -29,9 +31,12 @@ export default function AttentionBanner({ statusServices, slowThresholdMs, stora
     const freeMb = storage.freeBytes !== null ? Math.round(storage.freeBytes / 1e6) : null;
     issues.push({
       key: 'storage',
-      name: 'Disk space',
+      name: t('attentionBanner.diskSpace'),
       tone: 'slow',
-      text: `${storage.usedPercent}% full${freeMb !== null ? ` (${freeMb}MB free)` : ''} on ClickHouse's volume — it ages out old trace data on its own schedule (see the table TTL); no action needed unless this keeps climbing.`,
+      text:
+        freeMb !== null
+          ? t('attentionBanner.diskSpaceFullWithFree', { pct: storage.usedPercent, free: freeMb })
+          : t('attentionBanner.diskSpaceFull', { pct: storage.usedPercent }),
     });
   }
   for (const svc of statusServices) {
@@ -40,7 +45,9 @@ export default function AttentionBanner({ statusServices, slowThresholdMs, stora
         key: `${svc.name}|down`,
         name: svc.name,
         tone: 'down',
-        text: svc.checkError ? `down — ${svc.checkError}` : 'down — not responding',
+        text: svc.checkError
+          ? t('attentionBanner.downWithError', { error: svc.checkError })
+          : t('attentionBanner.downNoError'),
       });
     }
     if (svc.trace && svc.trace.slow && svc.trace.p95Ms !== null && svc.trace.p95Ms !== undefined) {
@@ -48,7 +55,7 @@ export default function AttentionBanner({ statusServices, slowThresholdMs, stora
         key: `${svc.name}|slow`,
         name: svc.name,
         tone: 'slow',
-        text: `very slow traces — p95 ${Math.round(svc.trace.p95Ms)}ms (above ${slowThresholdMs}ms)`,
+        text: t('attentionBanner.verySlowTraces', { ms: Math.round(svc.trace.p95Ms), threshold: slowThresholdMs }),
       });
     }
     // Memory only ever gets a status here if the container actually has a
@@ -60,9 +67,10 @@ export default function AttentionBanner({ statusServices, slowThresholdMs, stora
         key: `${svc.name}|memory`,
         name: svc.name,
         tone: svc.health.status === 'critical' ? 'down' : 'slow',
-        text: `memory at ${Math.round(svc.health.memPercent)}% of its configured limit${
-          svc.health.status === 'critical' ? ' — at risk of being OOM-killed' : ''
-        }`,
+        text:
+          svc.health.status === 'critical'
+            ? t('attentionBanner.memoryAtRisk', { pct: Math.round(svc.health.memPercent) })
+            : t('attentionBanner.memoryAt', { pct: Math.round(svc.health.memPercent) }),
       });
     }
   }
@@ -76,7 +84,7 @@ export default function AttentionBanner({ statusServices, slowThresholdMs, stora
   return (
     <div className="mb-5 border border-down/30 bg-down/5 rounded-lg overflow-hidden">
       <div className="px-3.5 py-2 border-b border-down/20 text-[12px] font-bold uppercase tracking-wider text-down">
-        Attention required
+        {t('attentionBanner.title')}
       </div>
       <div className="divide-y divide-down/10">
         {visible.map((issue) => (
@@ -91,7 +99,7 @@ export default function AttentionBanner({ statusServices, slowThresholdMs, stora
             <button
               type="button"
               onClick={() => dismiss(issue.key)}
-              title="Dismiss"
+              title={t('attentionBanner.dismiss')}
               className="link-btn shrink-0 text-muted hover:text-ink text-[15px] leading-none"
             >
               ×

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api.js';
 import InfoDot from './InfoDot.jsx';
 
@@ -21,6 +22,7 @@ const PADDLE_JS_URL = 'https://cdn.paddle.com/paddle/v2/paddle.js';
 // LICENSE_HEARTBEAT_INTERVAL_MS, 15 min by default) picks that up
 // automatically. No restart, no file edit, nothing to paste.
 export default function BillingPanel() {
+  const { t } = useTranslation();
   const [status, setStatus] = useState(null); // saas-license-status body
   const [config, setConfig] = useState(null); // billing/config body
   const [error, setError] = useState(null);
@@ -60,8 +62,9 @@ export default function BillingPanel() {
       window.Paddle.Initialize({ token: config.clientToken });
       setPaddleReady(true);
     };
-    script.onerror = () => setError('Could not load Paddle checkout — try again in a moment.');
+    script.onerror = () => setError(t('billingPanel.paddleLoadError'));
     document.head.appendChild(script);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config]);
 
   function openCheckout() {
@@ -75,7 +78,7 @@ export default function BillingPanel() {
     });
   }
 
-  if (error) return <div className="mb-5 text-[13px] text-down">Couldn't load billing status: {error}</div>;
+  if (error) return <div className="mb-5 text-[13px] text-down">{t('billingPanel.couldntLoad', { error })}</div>;
   if (!status) return null; // still loading — avoid a flash of empty state before the first response
   if (!status.saas) return null; // defensive only — `saas` is always true on this branch's engine build
 
@@ -102,15 +105,15 @@ export default function BillingPanel() {
               isPaid ? 'text-up bg-up/10' : 'text-ink-dim bg-panel-raised'
             }`}
           >
-            {isPaid ? 'Paid' : 'Free tier'}
+            {isPaid ? t('billingPanel.paid') : t('billingPanel.freeTier')}
           </span>
           {!isPaid && (
             <span className="text-[13px] text-ink-dim inline-flex items-center gap-1.5">
-              Capped at 10 watched services, 15 days retention.
-              <InfoDot title="Free tier applies whenever this install isn't currently subscribed — including before the first Subscribe click, or if a payment lapses for more than 48 hours (or the license server is unreachable for more than 5 days). Nothing already running is deleted; watching an 11th service is what gets blocked until you subscribe or free one up." />
+              {t('billingPanel.cappedDesc')}
+              <InfoDot title={t('billingPanel.freeTierTooltip')} />
             </span>
           )}
-          {isPaid && <span className="text-[13px] text-ink-dim">Unlimited watched services, full retention control.</span>}
+          {isPaid && <span className="text-[13px] text-ink-dim">{t('billingPanel.unlimitedDesc')}</span>}
         </div>
 
         <div className="flex items-center gap-2.5">
@@ -121,7 +124,7 @@ export default function BillingPanel() {
               rel="noopener noreferrer"
               className="text-[13px] font-semibold text-ink hover:text-accent underline decoration-border underline-offset-2"
             >
-              Link to my account
+              {t('billingPanel.linkToAccount')}
             </a>
           )}
           {!isPaid && config && config.enabled && (
@@ -131,11 +134,11 @@ export default function BillingPanel() {
               disabled={!paddleReady}
               className="text-[13px] font-semibold text-[#f5f7fc] bg-accent hover:brightness-110 rounded-md px-3.5 py-1.5 disabled:opacity-50"
             >
-              {paddleReady ? 'Subscribe' : 'Loading checkout…'}
+              {paddleReady ? t('billingPanel.subscribe') : t('billingPanel.loadingCheckout')}
             </button>
           )}
           {!isPaid && (!config || !config.enabled) && (
-            <span className="text-[13px] text-muted">Upgrading isn't available yet — check back soon.</span>
+            <span className="text-[13px] text-muted">{t('billingPanel.upgradingNotAvailable')}</span>
           )}
         </div>
       </div>

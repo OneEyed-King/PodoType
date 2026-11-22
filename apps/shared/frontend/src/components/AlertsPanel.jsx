@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api.js';
 import AlertsSettings from './AlertsSettings.jsx';
 
@@ -34,6 +35,7 @@ function formatHistoryTime(iso) {
 // time needs to see "in-app only right now" as an honest, undismissable
 // fact, not guess at it.
 export default function AlertsPanel() {
+  const { t } = useTranslation();
   const [alerts, setAlerts] = useState(null);
   const [error, setError] = useState(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -88,10 +90,12 @@ export default function AlertsPanel() {
   // delivery channels up front is what lets someone actually confirm this is
   // wired up and watching, instead of taking it on faith.
 
+  // Channel names (Telegram, webhook) stay as brand/technical terms in
+  // every language, same convention as the rest of this app.
   const channelLabels = [];
   if (alerts.channels.telegram) channelLabels.push('Telegram');
   if (alerts.channels.webhook) channelLabels.push('webhook');
-  const channelsText = channelLabels.length > 0 ? channelLabels.join(' + ') : 'in-app only';
+  const channelsText = channelLabels.length > 0 ? channelLabels.join(' + ') : t('alertsPanel.inAppOnly');
 
   if (settingsOpen) {
     return (
@@ -106,17 +110,18 @@ export default function AlertsPanel() {
     <div className="mb-5 border border-border rounded-lg overflow-hidden">
       <div className="px-3.5 py-2 border-b border-border-soft flex items-center justify-between gap-2 flex-wrap">
         <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim">
-          Alerts {alerts.active.length > 0 && <span className="text-down">({alerts.active.length} active)</span>}
+          {t('alertsPanel.title')}{' '}
+          {alerts.active.length > 0 && <span className="text-down">{t('alertsPanel.activeCount', { count: alerts.active.length })}</span>}
         </span>
         <div className="flex items-center gap-2.5">
           <span
             className="font-mono text-[11px] text-muted"
-            title={`Sustained for ${alerts.sustainChecks} consecutive checks before firing. Delivery: ${channelsText}.`}
+            title={t('alertsPanel.deliveryTooltip', { checks: alerts.sustainChecks, channels: channelsText })}
           >
-            delivery: {channelsText}
+            {t('alertsPanel.deliveryLabel', { channels: channelsText })}
           </span>
           <button type="button" className="link-btn text-[12px]" onClick={() => setSettingsOpen(true)}>
-            ⚙ Configure
+            {t('alertsPanel.configure')}
           </button>
         </div>
       </div>
@@ -129,14 +134,16 @@ export default function AlertsPanel() {
                 <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${a.severity === 'critical' ? 'bg-down' : 'bg-slow'}`} />
                 <span className="text-[13px] text-ink-dim [overflow-wrap:anywhere]">{a.message}</span>
               </div>
-              <span className="font-mono text-[11px] text-muted shrink-0">since {new Date(a.firstBreachAt).toLocaleTimeString()}</span>
+              <span className="font-mono text-[11px] text-muted shrink-0">
+                {t('alertsPanel.since', { time: new Date(a.firstBreachAt).toLocaleTimeString() })}
+              </span>
             </div>
           ))}
         </div>
       )}
 
       {alerts.active.length === 0 && (
-        <div className="px-3.5 py-2 text-[13px] text-muted">Nothing currently firing.</div>
+        <div className="px-3.5 py-2 text-[13px] text-muted">{t('alertsPanel.nothingFiring')}</div>
       )}
 
       {alerts.history.length > 0 && (
@@ -146,7 +153,9 @@ export default function AlertsPanel() {
             className="link-btn text-[12px] px-3.5 py-1.5"
             onClick={() => setHistoryOpen((v) => !v)}
           >
-            {historyOpen ? 'Hide' : 'Show'} recent activity ({alerts.history.length})
+            {historyOpen
+              ? t('alertsPanel.hideActivity', { count: alerts.history.length })
+              : t('alertsPanel.showActivity', { count: alerts.history.length })}
           </button>
           {historyOpen && (
             <div className="divide-y divide-border-soft max-h-56 overflow-y-auto">

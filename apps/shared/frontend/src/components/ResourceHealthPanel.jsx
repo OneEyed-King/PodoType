@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import InfoDot from './InfoDot.jsx';
 import Sparkline from './Sparkline.jsx';
 import { api } from '../api.js';
@@ -68,6 +69,7 @@ function Stat({ label, valueText, tone, sparklinePoints, sparklineColor }) {
 // poll every watched service gets regardless of whether anyone's looking —
 // same reasoning TraceExplorer already applies to its own per-service fetch.
 export default function ResourceHealthPanel({ svc }) {
+  const { t } = useTranslation();
   const [history, setHistory] = useState(null);
   const [historyError, setHistoryError] = useState(null);
 
@@ -116,14 +118,14 @@ export default function ResourceHealthPanel({ svc }) {
     <div className="bg-panel-recessed border border-border-soft rounded-md overflow-hidden">
       <div className="flex items-center justify-between px-2.5 py-2 border-b border-border-soft text-[12px] font-bold uppercase tracking-wider text-muted">
         <span className="inline-flex items-center gap-1.5">
-          Container health
-          <InfoDot title="CPU, memory, network and disk I/O for this container itself, read directly from Docker (the same numbers `docker stats` shows), plus request/error rate history where Beyla has resolved this container to a service. Separate from request-level tracing above. Memory shows a percent-of-limit only if this container's compose entry actually sets a memory limit." />
+          {t('resourceHealth.title')}
+          <InfoDot title={t('resourceHealth.tooltip')} />
         </span>
         {health && (health.restartCount !== null || health.uptimeSeconds !== null) && (
           <span className="font-mono text-[11px] normal-case tracking-normal text-muted">
-            {health.uptimeSeconds !== null && <>up {formatUptime(health.uptimeSeconds)}</>}
+            {health.uptimeSeconds !== null && t('resourceHealth.upPrefix', { time: formatUptime(health.uptimeSeconds) })}
             {health.uptimeSeconds !== null && health.restartCount !== null && ' · '}
-            {health.restartCount !== null && <>{health.restartCount} restart{health.restartCount === 1 ? '' : 's'}</>}
+            {health.restartCount !== null && t('resourceHealth.restarts', { count: health.restartCount })}
             {/* Restart count alone doesn't say why — a service OOM-killed
                 (needs more memory / has a leak) and one crash-looping on a
                 bug and one that was just redeployed all show the same "N
@@ -133,7 +135,7 @@ export default function ResourceHealthPanel({ svc }) {
               <>
                 {' · '}
                 <span className={health.lastExitReason.kind === 'oom' ? 'text-down' : health.lastExitReason.kind === 'crash' ? 'text-slow' : ''}>
-                  last: {health.lastExitReason.label}
+                  {t('resourceHealth.lastPrefix', { label: health.lastExitReason.label })}
                 </span>
               </>
             )}
@@ -142,20 +144,26 @@ export default function ResourceHealthPanel({ svc }) {
       </div>
 
       <div className="px-2.5 py-2">
-        {svc.up === false && <div className="text-[13px] text-muted">container not running</div>}
-        {svc.up !== false && !health && <div className="text-[13px] text-muted">waiting for first reading…</div>}
-        {svc.up !== false && health && health.error && <div className="text-[13px] text-muted">error: {health.error}</div>}
+        {svc.up === false && <div className="text-[13px] text-muted">{t('resourceHealth.containerNotRunning')}</div>}
+        {svc.up !== false && !health && <div className="text-[13px] text-muted">{t('resourceHealth.waitingFirstReading')}</div>}
+        {svc.up !== false && health && health.error && (
+          <div className="text-[13px] text-muted">{t('resourceHealth.errorPrefix', { error: health.error })}</div>
+        )}
 
         {svc.up !== false && health && !health.error && (
           <div className="flex gap-5 flex-wrap">
             <Stat
-              label="CPU"
+              label={t('alertsSettings.cpu')}
               valueText={health.cpuPercent !== null ? `${health.cpuPercent.toFixed(1)}%` : '—'}
               sparklinePoints={cpuPoints}
               sparklineColor="text-accent"
             />
             <Stat
-              label={`Memory${health.memPercent !== null ? ` — ${Math.round(health.memPercent)}% of limit` : ' (no limit set)'}`}
+              label={
+                health.memPercent !== null
+                  ? t('resourceHealth.memoryWithLimit', { pct: Math.round(health.memPercent) })
+                  : t('resourceHealth.memoryNoLimit')
+              }
               valueText={
                 <>
                   {formatBytes(health.memUsageBytes)}
@@ -169,25 +177,25 @@ export default function ResourceHealthPanel({ svc }) {
               sparklineColor={tone}
             />
             <Stat
-              label="Net RX"
+              label={t('resourceHealth.netRx')}
               valueText={formatBps(health.netRxRateBps)}
               sparklinePoints={netRxPoints}
               sparklineColor="text-accent"
             />
             <Stat
-              label="Net TX"
+              label={t('resourceHealth.netTx')}
               valueText={formatBps(health.netTxRateBps)}
               sparklinePoints={netTxPoints}
               sparklineColor="text-accent"
             />
             <Stat
-              label="Disk read"
+              label={t('resourceHealth.diskRead')}
               valueText={formatBps(health.blkReadRateBps)}
               sparklinePoints={diskReadPoints}
               sparklineColor="text-ink-dim"
             />
             <Stat
-              label="Disk write"
+              label={t('resourceHealth.diskWrite')}
               valueText={formatBps(health.blkWriteRateBps)}
               sparklinePoints={diskWritePoints}
               sparklineColor="text-ink-dim"
@@ -195,13 +203,13 @@ export default function ResourceHealthPanel({ svc }) {
             {hasRequestHistory && (
               <>
                 <Stat
-                  label="Requests/sec"
+                  label={t('metricsHistory.requestsPerSec')}
                   valueText={reqPoints[reqPoints.length - 1] !== undefined ? reqPoints[reqPoints.length - 1].toFixed(1) : '—'}
                   sparklinePoints={reqPoints}
                   sparklineColor="text-accent"
                 />
                 <Stat
-                  label="Error rate"
+                  label={t('alertsSettings.errorRate')}
                   valueText={errPoints[errPoints.length - 1] !== undefined ? `${errPoints[errPoints.length - 1].toFixed(1)}%` : '—'}
                   sparklinePoints={errPoints}
                   sparklineColor={errPoints[errPoints.length - 1] > 0 ? 'text-down' : 'text-muted'}
@@ -210,7 +218,9 @@ export default function ResourceHealthPanel({ svc }) {
             )}
           </div>
         )}
-        {historyError && <div className="text-[11px] text-muted mt-1.5">history unavailable: {historyError}</div>}
+        {historyError && (
+          <div className="text-[11px] text-muted mt-1.5">{t('resourceHealth.historyUnavailable', { error: historyError })}</div>
+        )}
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -102,9 +103,11 @@ export default function MultiSeriesChartPanel({
   mode = 'lines',
   valueFormatter,
   height = 220,
-  emptyText = 'No data yet for this window.',
+  emptyText,
   infoTitle,
 }) {
+  const { t } = useTranslation();
+  const resolvedEmptyText = emptyText ?? t('chartPanel.emptyDefault');
   const enoughPoints =
     (data || []).filter((row) => series.some((s) => row[s.key] !== null && row[s.key] !== undefined && Number.isFinite(row[s.key])))
       .length >= 2;
@@ -118,7 +121,7 @@ export default function MultiSeriesChartPanel({
       </div>
       {!enoughPoints ? (
         <div className="flex items-center justify-center text-[13px] text-muted" style={{ height }}>
-          {emptyText}
+          {resolvedEmptyText}
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={height}>

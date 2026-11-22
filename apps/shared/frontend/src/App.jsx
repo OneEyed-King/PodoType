@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api, DEPLOY_MODE } from './api.js';
 import { hostedApi } from './datasource/hostedApi.js';
 import TopBar from './components/TopBar.jsx';
@@ -86,6 +87,7 @@ const HOSTED = DEPLOY_MODE === 'hosted';
 const SECTIONS = ['overview', 'services', 'map', 'traces', 'tracing-setup', 'alerts', 'settings', 'compare', 'profiling'];
 
 export default function App() {
+  const { t } = useTranslation();
   const [services, setServices] = useState([]);
   const [statusServices, setStatusServices] = useState([]);
   const [thresholds, setThresholds] = useState(null);
@@ -386,11 +388,15 @@ export default function App() {
         setView(status.services.length > 0 ? 'monitor' : 'select');
       }
 
-      let text = `Updated ${new Date(status.generatedAt).toLocaleTimeString()} — stale after ${status.thresholds.staleAfterSeconds}s, slow above ${status.thresholds.slowThresholdMs}ms`;
-      if (status.containersError) text += ` — Docker error: ${status.containersError}`;
+      let text = t('app.updatedText', {
+        time: new Date(status.generatedAt).toLocaleTimeString(),
+        stale: status.thresholds.staleAfterSeconds,
+        slow: status.thresholds.slowThresholdMs,
+      });
+      if (status.containersError) text += t('app.dockerErrorSuffix', { error: status.containersError });
       setUpdatedText(text);
     } catch (err) {
-      setUpdatedText(`Error refreshing: ${err.message}`);
+      setUpdatedText(t('app.errorRefreshing', { error: err.message }));
     }
   }
 
@@ -493,10 +499,13 @@ export default function App() {
   // resolves to hostedApi.setCheck for the hosted build), so hosted reuses
   // this exact function rather than writing its own copy, passing
   // hostedDiscoveryRefresh as the one thing that has to differ.
-  // Opens HealthCheckModal instead of the old window.prompt() pair — the
-  // modal owns its own type/target fields and inline validation now, so
-  // this just records which service it's for and lets submitCheck (below)
-  // do the actual save once the modal's own Save button is clicked.
+  // Opens HealthCheckModal instead of the old window.prompt() pair (which
+  // main's i18n pass had translated — see app.healthCheckTypePrompt etc.
+  // in the locale files, now unused but left in place rather than ripped
+  // out mid-merge) — the modal owns its own type/target fields and inline
+  // validation now, so this just records which service it's for and lets
+  // submitCheck (below) do the actual save once the modal's own Save
+  // button is clicked.
   function setupCheck(name, existing, refreshFn = refresh) {
     setCheckModal({ name, existing, refreshFn });
   }
@@ -647,7 +656,7 @@ export default function App() {
     if (!authChecked) {
       return (
         <div className="min-h-screen flex items-center justify-center">
-          <div className="text-[14px] text-muted">Checking your session…</div>
+          <div className="text-[14px] text-muted">{t('app.checkingSession')}</div>
         </div>
       );
     }
@@ -663,19 +672,19 @@ export default function App() {
           <TopBar mode="hosted" serviceCount={hd ? hd.services.filter((s) => s.watched).length : 0} retentionDays={hostedRetentionDays} />
           {hostedDiscoveryError && (
             <p className="text-muted text-[15px] px-6 pt-4">
-              Couldn't load discovered containers — try refreshing. <span className="text-down">({hostedDiscoveryError})</span>
+              {t('app.couldntLoadContainers')} <span className="text-down">({hostedDiscoveryError})</span>
             </p>
           )}
           {hd && hd.tier === 'free' && (
             <div className="mx-6 mt-4 border border-border rounded-lg px-3.5 py-2.5 text-[13px] text-ink-dim">
               <span className="font-bold uppercase tracking-wider text-[12px] text-ink-dim bg-panel-raised rounded px-2 py-0.5 mr-2">
-                Free tier
+                {t('app.freeTierBadge')}
               </span>
-              Capped at {hd.maxWatchedServices} watched services ({hd.watchedCount}/{hd.maxWatchedServices} used).
+              {t('app.cappedAt', { max: hd.maxWatchedServices, used: hd.watchedCount })}
             </div>
           )}
           {hostedToggleError && <p className="text-down text-[14px] px-6 pt-2">{hostedToggleError}</p>}
-          {!hd && !hostedDiscoveryError && <p className="text-muted text-[15px] px-6 pt-4">Loading…</p>}
+          {!hd && !hostedDiscoveryError && <p className="text-muted text-[15px] px-6 pt-4">{t('app.loading')}</p>}
           {hd && (
             <SelectServices
               services={hd.services}
@@ -708,14 +717,14 @@ export default function App() {
     }
     const jumpItems = [
       ...watchedServices.map((s) => ({ id: `svc:${s.name}`, label: s.name, kind: 'service', name: s.name })),
-      { id: 'action:overview', label: 'Go to Overview', kind: 'section', target: 'overview' },
-      { id: 'action:services', label: 'Go to Services', kind: 'section', target: 'services' },
-      { id: 'action:map', label: 'Go to Service map', kind: 'section', target: 'map' },
-      { id: 'action:traces', label: 'Go to Traces', kind: 'section', target: 'traces' },
-      { id: 'action:tracing-setup', label: 'Go to Code Tracing', kind: 'section', target: 'tracing-setup' },
-      { id: 'action:alerts', label: 'Go to Alerts', kind: 'section', target: 'alerts' },
-      { id: 'action:settings', label: 'Go to Settings', kind: 'section', target: 'settings' },
-      { id: 'action:add-services', label: 'Add more services', kind: 'view' },
+      { id: 'action:overview', label: t('app.goToOverview'), kind: 'section', target: 'overview' },
+      { id: 'action:services', label: t('app.goToServices'), kind: 'section', target: 'services' },
+      { id: 'action:map', label: t('app.goToServiceMap'), kind: 'section', target: 'map' },
+      { id: 'action:traces', label: t('app.goToTraces'), kind: 'section', target: 'traces' },
+      { id: 'action:tracing-setup', label: t('app.goToCodeTracing'), kind: 'section', target: 'tracing-setup' },
+      { id: 'action:alerts', label: t('app.goToAlerts'), kind: 'section', target: 'alerts' },
+      { id: 'action:settings', label: t('app.goToSettings'), kind: 'section', target: 'settings' },
+      { id: 'action:add-services', label: t('app.addMoreServicesJump'), kind: 'view' },
     ];
     function handleJumpSelect(item) {
       if (item.kind === 'service') return jumpToService(item.name);
@@ -762,17 +771,16 @@ export default function App() {
               <div className="mb-5 border border-border rounded-lg px-3.5 py-2.5 flex items-center justify-between gap-3 flex-wrap text-[13px] text-ink-dim">
                 <span>
                   <span className="font-bold uppercase tracking-wider text-[12px] text-ink-dim bg-panel-raised rounded px-2 py-0.5 mr-2">
-                    Free tier
+                    {t('app.freeTierBadge')}
                   </span>
-                  Capped at {hostedDiscovery.maxWatchedServices} watched services ({hostedDiscovery.watchedCount}/
-                  {hostedDiscovery.maxWatchedServices} used).
+                  {t('app.cappedAt', { max: hostedDiscovery.maxWatchedServices, used: hostedDiscovery.watchedCount })}
                 </span>
               </div>
             )}
 
             {(hostedError || hostedDiscoveryError) && (
               <p className="text-muted text-[15px] mb-4">
-                Couldn't load your services — try refreshing.{' '}
+                {t('app.couldntLoadServices')}{' '}
                 <span className="text-down">({hostedError || hostedDiscoveryError})</span>
               </p>
             )}
@@ -782,7 +790,7 @@ export default function App() {
                 <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
                   <h1 className="text-[20px] font-bold m-0">
                     <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">01 /</span>
-                    Overview
+                    {t('app.sectionOverview')}
                   </h1>
                   <div className="flex items-center gap-2">
                     <TimeRangePicker minutes={overviewRangeMinutes} onChange={setOverviewRangeMinutes} allowLive={false} />
@@ -818,18 +826,18 @@ export default function App() {
                 <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
                   <h1 className="text-[20px] font-bold m-0">
                     <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">02 /</span>
-                    Watched services
+                    {t('app.sectionWatchedServices')}
                   </h1>
                   <button
                     type="button"
                     onClick={() => setHostedView('select')}
                     className="text-[13px] font-semibold text-[#f5f7fc] bg-accent hover:brightness-110 rounded-md px-3.5 py-1.5"
                   >
-                    + Add more services
+                    {t('app.addMoreServices')}
                   </button>
                 </div>
                 <div className="flex items-center gap-3 font-mono text-[12px] text-muted mb-3">
-                  <span>auto-refresh · poll {Math.round(POLL_MS / 1000)}s</span>
+                  <span>{t('app.autoRefreshPoll', { seconds: Math.round(POLL_MS / 1000) })}</span>
                 </div>
 
                 {watchedServices.length > 5 && (
@@ -837,22 +845,22 @@ export default function App() {
                     type="text"
                     value={servicesQuery}
                     onChange={(e) => setServicesQuery(e.target.value)}
-                    placeholder={`Search ${watchedServices.length} services…`}
+                    placeholder={t('app.searchServicesPlaceholder', { count: watchedServices.length })}
                     className="w-full max-w-xs mb-4 text-[13px] bg-panel-raised border border-border rounded-md px-3 py-1.5 text-ink placeholder:text-muted focus:outline-none focus:border-accent"
                   />
                 )}
 
-                {hostedDiscovery === null && !hostedDiscoveryError && <p className="text-muted text-[15px]">Loading…</p>}
+                {hostedDiscovery === null && !hostedDiscoveryError && <p className="text-muted text-[15px]">{t('app.loading')}</p>}
 
                 {hostedDiscovery !== null && watchedServices.length === 0 && !hostedDiscoveryError && (
-                  <p className="text-muted text-[15px]">Nothing watched yet — use "+ Add more services" above to pick some.</p>
+                  <p className="text-muted text-[15px]">{t('app.nothingWatchedYetHosted')}</p>
                 )}
 
                 {(() => {
                   const q = servicesQuery.trim().toLowerCase();
                   const filteredHostedServices = q ? watchedServices.filter((s) => s.name.toLowerCase().includes(q)) : watchedServices;
                   if (watchedServices.length > 0 && filteredHostedServices.length === 0) {
-                    return <p className="text-muted text-[15px]">No services match "{servicesQuery}".</p>;
+                    return <p className="text-muted text-[15px]">{t('app.noServicesMatch', { query: servicesQuery })}</p>;
                   }
                   const slowestName = findSlowestServiceName(watchedServices);
                   return (
@@ -879,7 +887,7 @@ export default function App() {
               <>
                 <h1 className="text-[20px] font-bold mb-4">
                   <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">03 /</span>
-                  Service map
+                  {t('app.sectionServiceMap')}
                 </h1>
                 <ServiceMap />
               </>
@@ -889,12 +897,9 @@ export default function App() {
               <>
                 <h1 className="text-[20px] font-bold mb-4">
                   <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">04 /</span>
-                  Traces
+                  {t('app.sectionTraces')}
                 </h1>
-                <p className="text-[14px] text-ink-dim mb-4">
-                  Per-service traces live on each service's own row under Services. Use this console for ad-hoc SQL
-                  across everything you're watching.
-                </p>
+                <p className="text-[14px] text-ink-dim mb-4">{t('app.tracesPageIntro')}</p>
                 <QueryConsole onClose={() => setSection('overview')} />
               </>
             )}
@@ -903,12 +908,9 @@ export default function App() {
               <>
                 <h1 className="text-[20px] font-bold mb-4">
                   <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">05 /</span>
-                  Code Tracing
+                  {t('app.sectionCodeTracing')}
                 </h1>
-                <p className="text-[14px] text-ink-dim mb-4">
-                  Opt-in, per-service instrumentation on top of the always-on Beyla eBPF tracing — pick which watched
-                  services to instrument and a language for each, then generate the setup file once for all of them.
-                </p>
+                <p className="text-[14px] text-ink-dim mb-4">{t('app.codeTracingPageIntro')}</p>
                 <BulkOtelSetup
                   services={hostedDiscovery ? hostedDiscovery.services : []}
                   supportedOtelLanguages={otelLanguages}
@@ -928,7 +930,7 @@ export default function App() {
               <>
                 <h1 className="text-[20px] font-bold mb-4">
                   <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">06 /</span>
-                  Alerts
+                  {t('app.sectionAlerts')}
                 </h1>
                 <HostedAlertsPanel />
               </>
@@ -938,9 +940,9 @@ export default function App() {
               <>
                 <h1 className="text-[20px] font-bold mb-4">
                   <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">07 /</span>
-                  Settings
+                  {t('app.sectionSettings')}
                 </h1>
-                <RetentionPanel storage={null} label="Data retention (spans, logs & metrics)" editorLabel="Configure data retention" />
+                <RetentionPanel storage={null} label={t('app.hostedDataRetentionLabel')} editorLabel={t('app.hostedConfigureDataRetention')} />
                 <AppearancePanel />
               </>
             )}
@@ -949,7 +951,7 @@ export default function App() {
               <>
                 <h1 className="text-[20px] font-bold mb-4">
                   <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">08 /</span>
-                  Compare
+                  {t('app.sectionCompare')}
                 </h1>
                 <CompareServices services={watchedServices} />
               </>
@@ -959,7 +961,7 @@ export default function App() {
               <>
                 <h1 className="text-[20px] font-bold mb-4">
                   <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">09 /</span>
-                  Profiling
+                  {t('app.sectionProfiling')}
                 </h1>
                 <ProfilingPanel />
               </>
@@ -1000,14 +1002,14 @@ export default function App() {
   }
   const jumpItems = [
     ...statusServices.map((svc) => ({ id: `svc:${svc.name}`, label: svc.name, kind: 'service', name: svc.name })),
-    { id: 'action:overview', label: 'Go to Overview', kind: 'section', target: 'overview' },
-    { id: 'action:services', label: 'Go to Services', kind: 'section', target: 'services' },
-    { id: 'action:map', label: 'Go to Service map', kind: 'section', target: 'map' },
-    { id: 'action:traces', label: 'Go to Traces', kind: 'section', target: 'traces' },
-    { id: 'action:tracing-setup', label: 'Go to Code Tracing', kind: 'section', target: 'tracing-setup' },
-    { id: 'action:alerts', label: 'Go to Alerts', kind: 'section', target: 'alerts' },
-    { id: 'action:settings', label: 'Go to Settings', kind: 'section', target: 'settings' },
-    { id: 'action:add-services', label: 'Add more services', kind: 'view' },
+    { id: 'action:overview', label: t('app.goToOverview'), kind: 'section', target: 'overview' },
+    { id: 'action:services', label: t('app.goToServices'), kind: 'section', target: 'services' },
+    { id: 'action:map', label: t('app.goToServiceMap'), kind: 'section', target: 'map' },
+    { id: 'action:traces', label: t('app.goToTraces'), kind: 'section', target: 'traces' },
+    { id: 'action:tracing-setup', label: t('app.goToCodeTracing'), kind: 'section', target: 'tracing-setup' },
+    { id: 'action:alerts', label: t('app.goToAlerts'), kind: 'section', target: 'alerts' },
+    { id: 'action:settings', label: t('app.goToSettings'), kind: 'section', target: 'settings' },
+    { id: 'action:add-services', label: t('app.addMoreServicesJump'), kind: 'view' },
   ];
   function handleJumpSelect(item) {
     if (item.kind === 'service') return jumpToService(item.name);
@@ -1079,7 +1081,7 @@ export default function App() {
                 <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
                   <h1 className="text-[20px] font-bold m-0">
                     <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">01 /</span>
-                    Overview
+                    {t('app.sectionOverview')}
                   </h1>
                   <div className="flex items-center gap-2">
                     <TimeRangePicker minutes={overviewRangeMinutes} onChange={setOverviewRangeMinutes} allowLive={false} />
@@ -1091,7 +1093,7 @@ export default function App() {
                   </div>
                 </div>
                 <div data-tour="preflight-area">
-                  <PreflightBanner />
+                  <PreflightBanner onGoToCodeTracing={() => setSection('tracing-setup')} />
                 </div>
                 <FleetGoldenSignals services={statusServices} />
                 <div data-tour="overview-summary">
@@ -1121,7 +1123,7 @@ export default function App() {
                 <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
                   <h1 className="text-[20px] font-bold m-0">
                     <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">02 /</span>
-                    Watched services
+                    {t('app.sectionWatchedServices')}
                   </h1>
                   <div className="flex items-center gap-2">
                     <button
@@ -1129,17 +1131,17 @@ export default function App() {
                       onClick={() => setView('select')}
                       className="text-[13px] font-semibold text-[#f5f7fc] bg-accent hover:brightness-110 rounded-md px-3.5 py-1.5"
                     >
-                      + Add more services
+                      {t('app.addMoreServices')}
                     </button>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 font-mono text-[12px] text-muted mb-5">
-                  <span>auto-refresh · poll {Math.round(POLL_MS / 1000)}s</span>
+                  <span>{t('app.autoRefreshPoll', { seconds: Math.round(POLL_MS / 1000) })}</span>
                   {tracedCount > 0 && (
                     <>
                       <span>·</span>
                       <button type="button" className="link-btn text-accent" onClick={showOtelInstructions}>
-                        🔗 {tracedCount} service{tracedCount === 1 ? '' : 's'} traced — view setup file
+                        🔗 {t('app.tracedServicesLink', { count: tracedCount })}
                       </button>
                     </>
                   )}
@@ -1150,16 +1152,16 @@ export default function App() {
                     type="text"
                     value={servicesQuery}
                     onChange={(e) => setServicesQuery(e.target.value)}
-                    placeholder={`Search ${statusServices.length} services…`}
+                    placeholder={t('app.searchServicesPlaceholder', { count: statusServices.length })}
                     className="w-full max-w-xs mb-4 text-[13px] bg-panel-raised border border-border rounded-md px-3 py-1.5 text-ink placeholder:text-muted focus:outline-none focus:border-accent"
                   />
                 )}
 
                 {statusServices.length === 0 ? (
                   <p className="text-muted text-[15px]">
-                    Nothing watched yet.{' '}
+                    {t('app.nothingWatchedYetPrefix')}{' '}
                     <button type="button" className="link-btn text-accent" onClick={() => setView('select')}>
-                      Select services to track
+                      {t('app.selectServicesToTrack')}
                     </button>
                     .
                   </p>
@@ -1167,7 +1169,7 @@ export default function App() {
                   const q = servicesQuery.trim().toLowerCase();
                   const filteredStatusServices = q ? statusServices.filter((svc) => svc.name.toLowerCase().includes(q)) : statusServices;
                   if (filteredStatusServices.length === 0) {
-                    return <p className="text-muted text-[15px]">No services match "{servicesQuery}".</p>;
+                    return <p className="text-muted text-[15px]">{t('app.noServicesMatch', { query: servicesQuery })}</p>;
                   }
                   const slowestName = findSlowestServiceName(statusServices);
                   return (
@@ -1192,7 +1194,7 @@ export default function App() {
               <>
                 <h1 className="text-[20px] font-bold mb-4">
                   <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">03 /</span>
-                  Service map
+                  {t('app.sectionServiceMap')}
                 </h1>
                 <ServiceMap />
               </>
@@ -1202,12 +1204,9 @@ export default function App() {
               <>
                 <h1 className="text-[20px] font-bold mb-4">
                   <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">04 /</span>
-                  Traces
+                  {t('app.sectionTraces')}
                 </h1>
-                <p className="text-[14px] text-ink-dim mb-4">
-                  Per-service traces live on each service's own row under Services. Use this console for ad-hoc SQL
-                  across everything you're watching.
-                </p>
+                <p className="text-[14px] text-ink-dim mb-4">{t('app.tracesPageIntro')}</p>
                 <QueryConsole onClose={() => setSection('overview')} />
               </>
             )}
@@ -1216,12 +1215,9 @@ export default function App() {
               <>
                 <h1 className="text-[20px] font-bold mb-4">
                   <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">05 /</span>
-                  Code Tracing
+                  {t('app.sectionCodeTracing')}
                 </h1>
-                <p className="text-[14px] text-ink-dim mb-4">
-                  Opt-in, per-service instrumentation on top of the always-on Beyla eBPF tracing — pick which watched
-                  services to instrument and a language for each, then generate the setup file once for all of them.
-                </p>
+                <p className="text-[14px] text-ink-dim mb-4">{t('app.codeTracingPageIntro')}</p>
                 <BulkOtelSetup
                   services={services}
                   supportedOtelLanguages={otelLanguages}
@@ -1241,7 +1237,7 @@ export default function App() {
               <>
                 <h1 className="text-[20px] font-bold mb-4">
                   <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">06 /</span>
-                  Alerts
+                  {t('app.sectionAlerts')}
                 </h1>
                 <AlertsPanel />
               </>
@@ -1251,7 +1247,7 @@ export default function App() {
               <>
                 <h1 className="text-[20px] font-bold mb-4">
                   <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">07 /</span>
-                  Settings
+                  {t('app.sectionSettings')}
                 </h1>
                 <RetentionPanel storage={storage} />
                 <LogRetentionPanel />
@@ -1264,7 +1260,7 @@ export default function App() {
               <>
                 <h1 className="text-[20px] font-bold mb-4">
                   <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">08 /</span>
-                  Compare
+                  {t('app.sectionCompare')}
                 </h1>
                 <CompareServices services={statusServices} />
               </>
@@ -1274,7 +1270,7 @@ export default function App() {
               <>
                 <h1 className="text-[20px] font-bold mb-4">
                   <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">09 /</span>
-                  Profiling
+                  {t('app.sectionProfiling')}
                 </h1>
                 <ProfilingPanel />
               </>

@@ -1074,6 +1074,23 @@ let containerIoPrev = new Map();
 // growing an array on every request.
 let containerStatsHistory = new Map();
 
+// name -> bounded array of { t, p50Ms, p95Ms, p99Ms }, oldest first —
+// sampled by evaluateAlerts on the same cadence as the other alert
+// evaluation, and what GET /api/services/:name/metrics-history's own
+// `latency` field reads from. This was referenced in three places (the
+// push in evaluateAlerts, the cleanup loop that drops entries for
+// no-longer-watched services, and that API route) with no declaration
+// anywhere — a straight ReferenceError the first time a real request
+// exercised it. Writes went silently unnoticed (evaluateAlerts runs
+// inside a .catch(() => {}) at its call site), but a read is an async
+// Express route handler with no try/catch of its own, so the resulting
+// unhandled rejection crashed the whole process the moment anyone opened
+// a watched service's latency chart — independently hit and fixed twice
+// (once per branch) before this merge caught the duplicate declaration.
+// Keyed by the service's own canonical (watched) name, same as
+// containerStatsHistory is keyed by container id.
+let latencyHistory = new Map();
+
 // containerName -> the image ID (sha256, from Docker inspect's `.Image`
 // field — NOT the image tag, which a `:latest`-style tag reuses across
 // deploys and so can't detect a change) last seen for that name. Used by
@@ -3399,11 +3416,25 @@ async function generateOtelOverride(entries) {
   // filename/yaml/instructions/includeSnippet are unaffected; it's there
   // for a UI that wants to show "N service(s) skipped" as its own banner
   // instead of making someone read the full instructions text to notice.
+  // Confirmed live: the full `instructions` prose above (and the same
+  // commands repeated as comments in `yaml`) is long enough that the two
+  // commands someone actually needs to run — apply, then clean up fetch
+  // containers — end up scrolled out of view, either past the fold of the
+  // instructions panel or past the fixed-height YAML textarea's own
+  // internal scrollbar. Pulling them out as their own short, dedicated,
+  // always-visible fields lets the UI put each one in its own one-line
+  // copy box ABOVE the long prose, instead of asking the operator to find
+  // them inside it.
+  const runCommand = `docker compose -f docker-compose.yml -f ${OTEL_OVERRIDE_FILENAME} up -d`;
+  const cleanupCommand = `docker ps -a --filter "name=-podotype-otel-fetch" --format "{{.Names}}" | xargs -r docker rm -f`;
+
   return {
     filename: OTEL_OVERRIDE_FILENAME,
     yaml,
     instructions,
     includeSnippet,
+    runCommand,
+    cleanupCommand,
     warnings: skippedLines.map((l) => l.replace(/^#\s*-\s*/, '')),
   };
 }
@@ -3619,6 +3650,56 @@ async function pollTlsCertExpiry() {
 const app = express();
 app.use(express.json());
 
+// ---- Basic auth (UI + API) ---------------------------------------------
+//
+// Self-hosted has no accounts system — this is a single shared
+// username/password gate in front of the whole dashboard (static UI and
+// /api/* alike), not multi-user auth. ON by default with admin/admin so a
+// fresh install isn't wide open the moment the port is reachable; override
+// via .env (PODOTYPE_BASIC_AUTH_USER / PODOTYPE_BASIC_AUTH_PASSWORD, see
+// .env.example and docker-compose.yml). Deliberately does NOT cover the
+// OTLP ingest port (startOtlpIngestServer, below, on its own http.Server) —
+// that's where Beyla and OTel-enabled services SEND traces to, not
+// something a person logs into, and those senders don't carry credentials.
+// Comparisons are constant-time (crypto.timingSafeEqual) so a wrong guess
+// can't be narrowed down by response timing.
+const BASIC_AUTH_USER = process.env.BASIC_AUTH_USER || 'admin';
+const BASIC_AUTH_PASSWORD = process.env.BASIC_AUTH_PASSWORD || 'admin';
+
+function timingSafeStringEqual(a, b) {
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+  if (bufA.length !== bufB.length) {
+    // Compare bufA against itself so a length mismatch still costs a real
+    // comparison rather than returning instantly.
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+function requireBasicAuth(req, res, next) {
+  const header = req.get('authorization') || '';
+  if (header.startsWith('Basic ')) {
+    let decoded = '';
+    try {
+      decoded = Buffer.from(header.slice('Basic '.length), 'base64').toString('utf8');
+    } catch {
+      decoded = '';
+    }
+    const sep = decoded.indexOf(':');
+    const user = sep === -1 ? decoded : decoded.slice(0, sep);
+    const pass = sep === -1 ? '' : decoded.slice(sep + 1);
+    if (timingSafeStringEqual(user, BASIC_AUTH_USER) && timingSafeStringEqual(pass, BASIC_AUTH_PASSWORD)) {
+      return next();
+    }
+  }
+  res.set('WWW-Authenticate', 'Basic realm="PodoType", charset="UTF-8"');
+  res.status(401).send('Authentication required');
+}
+
+app.use(requireBasicAuth);
+
 // ---- Static UI (self-hosted combined container only) ------------------
 // The self-hosted product combines what used to be three containers
 // (engine, web, beyla) into one — see docker-entrypoint.sh and
@@ -3727,6 +3808,10 @@ function mergeAlertConfig(saved) {
       // a moment after hitting Save, then vanish the next time state.json
       // was re-read — see POST /api/alerts/config and defaultAlertConfig's
       // own `channels.email` shape, both of which always supported it.
+      // (Independently hit twice: a fresh install with no saved
+      // alertConfig crashed GET /api/alerts reading channels.email.enabled
+      // off this merge's result, since the key never made it into the
+      // returned object at all.)
       email: { ...def.channels.email, ...((ac.channels && ac.channels.email) || {}) },
     },
   };
@@ -4481,20 +4566,6 @@ let redMetricsLastRawSampleNames = []; // small debug aid — see /api/debug/bey
 // containerStatsHistory, kept as its own Map since this is keyed by Beyla's
 // service|instance key rather than a Docker container id.
 let redMetricsHistory = new Map();
-
-// FIX — the latency half of the same endpoint. This was referenced
-// (evaluateAlerts' own pushBoundedHistory call, the cleanup loop that
-// drops entries for no-longer-watched services, and the metrics-history
-// GET handler itself) but never actually DECLARED anywhere in this file —
-// every read of it threw a ReferenceError. Writes went silently unnoticed
-// (evaluateAlerts runs inside a .catch(() => {}) at its call site), but a
-// read is an async Express route handler with no try/catch of its own, so
-// the resulting unhandled rejection crashed the whole process the moment
-// anyone opened a watched service's latency chart. Keyed by the
-// service's own canonical (watched) name, same as containerStatsHistory
-// is keyed by container id — see evaluateAlerts' own comment for where
-// this gets populated.
-let latencyHistory = new Map();
 
 // serviceName (canonical watched name, NOT the beyla-resolved runtime
 // name — this is keyed the same way GET /api/services/:name/metrics-history
@@ -5393,6 +5464,10 @@ function checkBeylaReachable() {
   });
 }
 
+// Grace period after server start before "beyla's up but has resolved
+// nothing" is treated as meaningful rather than "just hasn't scraped yet."
+const PREFLIGHT_CAPTURE_GRACE_MS = 90000;
+
 async function runPreflightCheck() {
   let btfAvailable = false;
   try {
@@ -5415,6 +5490,35 @@ async function runPreflightCheck() {
   } else if (!beylaReachable) {
     status = 'error';
     message = "Can't reach beyla's metrics endpoint — it may have failed to start or crashed. Check `docker compose logs beyla`.";
+  } else {
+    // Both checks above pass, but that only proves beyla's PROCESS is up —
+    // not that its eBPF probes are actually seeing any of your containers'
+    // real traffic. Confirmed live: on Docker Desktop / WSL2 and some other
+    // virtualized hosts, BTF is present and the metrics port answers, yet
+    // beyla never resolves a single watched container because it can't
+    // attach into the host's real process/network namespaces the way it
+    // can on a real Linux VPS or bare-metal box — so every chart on the
+    // overview page stays empty with nothing telling the operator why.
+    // beylaNameMapFromMetrics (rebuilt every pollBeylaRedMetrics() cycle)
+    // is the ground truth for "has beyla resolved ANY container at all" —
+    // far more reliable here than reachability, since a dead-in-the-water
+    // beyla still answers /metrics with zero useful content.
+    let state;
+    try {
+      state = loadState();
+    } catch (_) {
+      state = { services: {} };
+    }
+    const nonOtelWatched = Object.entries(state.services || {}).filter(
+      ([, entry]) => entry && entry.watched && !(entry.otel && entry.otel.enabled)
+    );
+    const pastGrace = Date.now() - new Date(serverStartedAt).getTime() > PREFLIGHT_CAPTURE_GRACE_MS;
+    const beylaResolvedAnything = beylaNameMapFromMetrics.containerIdToName.size > 0;
+    if (pastGrace && nonOtelWatched.length > 0 && !beylaResolvedAnything) {
+      status = 'warning';
+      message =
+        "beyla is reachable and this host's kernel exposes BTF, but after waiting it still hasn't resolved any traffic for your watched services — charts stay empty even though the checks above pass. This is common on Docker Desktop, WSL2, and other virtualized or sandboxed hosts, where eBPF can't see into a container's real processes the way it can on a genuine Linux VPS or bare-metal host. If you're not running on one of those, eBPF-based tracing likely won't work here at all — turn on Code Tracing (OpenTelemetry) for your services instead from each service's tracing panel.";
+    }
   }
 
   preflightCache = { checkedAt: new Date().toISOString(), btfAvailable, beylaReachable, status, message };

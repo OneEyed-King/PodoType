@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api.js';
 
 // The recurring Reddit ask, now built: not just "this service is slow,"
@@ -12,6 +13,7 @@ import { api } from '../api.js';
 // below is kept anyway as the generic "datasource doesn't have this
 // optional feature" guard, same as preflight's own.
 export default function PossibleCauseCard({ serviceName }) {
+  const { t } = useTranslation();
   const [state, setState] = useState(null); // null = loading, otherwise the response body
 
   useEffect(() => {
@@ -38,22 +40,26 @@ export default function PossibleCauseCard({ serviceName }) {
   return (
     <div className="mb-3 border border-border rounded-lg px-3.5 py-2.5">
       <div className="flex items-center justify-between gap-2 mb-1.5">
-        <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim">Possible cause</span>
+        <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim">{t('possibleCause.title')}</span>
         <span
           className={`font-mono text-[11px] font-bold rounded-full px-2 py-0.5 border ${
             state.isError ? 'text-down bg-down/10 border-down/30' : 'text-slow bg-slow/10 border-slow/30'
           }`}
         >
-          {state.sharePercent !== null ? `${state.sharePercent}% of request time` : state.isError ? 'error' : 'slow'}
+          {state.sharePercent !== null
+            ? t('possibleCause.sharePercent', { pct: state.sharePercent })
+            : state.isError
+            ? t('possibleCause.error')
+            : t('possibleCause.slow')}
         </span>
       </div>
       <div className="text-[13px] text-ink leading-relaxed mb-2">{state.message}</div>
       <div className="text-[13px] text-ink-dim leading-relaxed">
-        <span className="font-semibold text-ink">Suggested next step: </span>
+        <span className="font-semibold text-ink">{t('possibleCause.suggestedNextStep')}</span>
         {state.nextStep}
       </div>
       <div className="text-[11px] text-muted mt-2">
-        Based on one recent trace ({state.traceId.slice(0, 12)}…) — a possible explanation, not a confirmed diagnosis.
+        {t('possibleCause.footnote', { traceId: state.traceId.slice(0, 12) })}
       </div>
     </div>
   );

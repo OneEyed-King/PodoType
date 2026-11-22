@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api.js';
 
 // Upstream/downstream list for ONE service, inline in its own expanded
@@ -14,6 +15,7 @@ import { api } from '../api.js';
 // "fetched only once opened" posture ServiceAlertOverrides/LogsPanel
 // already use elsewhere in this row.
 export default function ServiceDependencies({ serviceName }) {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
@@ -33,7 +35,7 @@ export default function ServiceDependencies({ serviceName }) {
   }, [serviceName]);
 
   if (error) return <div className="text-[13px] text-down">{error}</div>;
-  if (!data) return <div className="text-[13px] text-muted">loading…</div>;
+  if (!data) return <div className="text-[13px] text-muted">{t('serviceDependencies.loading')}</div>;
 
   const edges = data.edges || [];
   const upstream = edges.filter((e) => e.to === serviceName && e.from !== serviceName);
@@ -42,8 +44,7 @@ export default function ServiceDependencies({ serviceName }) {
   if (upstream.length === 0 && downstream.length === 0) {
     return (
       <div className="text-[13px] text-muted">
-        No call relationships seen for this service in the last {Math.round((data.lookbackSeconds || 300) / 60)} minutes
-        — either nothing calls it (or it calls nothing) yet, or there's not enough trace data.
+        {t('serviceDependencies.noRelationships', { minutes: Math.round((data.lookbackSeconds || 300) / 60) })}
       </div>
     );
   }
@@ -54,7 +55,7 @@ export default function ServiceDependencies({ serviceName }) {
         <span className="text-muted w-16 shrink-0">{label}</span>
         <span className="text-ink font-semibold [overflow-wrap:anywhere]">{other}</span>
         <span className="text-muted text-[12px] ml-auto shrink-0">
-          {callCount} call{callCount === 1 ? '' : 's'} · p95 {Math.round(p95Ms)}ms
+          {t('serviceDependencies.callsSummary', { count: callCount, p95: Math.round(p95Ms) })}
         </span>
       </div>
     );
@@ -63,10 +64,10 @@ export default function ServiceDependencies({ serviceName }) {
   return (
     <div className="flex flex-col gap-1.5">
       {upstream.map((e) => (
-        <EdgeRow key={`up:${e.from}`} label="called by" other={e.from} callCount={e.callCount} p95Ms={e.p95Ms} />
+        <EdgeRow key={`up:${e.from}`} label={t('serviceDependencies.calledBy')} other={e.from} callCount={e.callCount} p95Ms={e.p95Ms} />
       ))}
       {downstream.map((e) => (
-        <EdgeRow key={`down:${e.to}`} label="calls" other={e.to} callCount={e.callCount} p95Ms={e.p95Ms} />
+        <EdgeRow key={`down:${e.to}`} label={t('serviceDependencies.calls')} other={e.to} callCount={e.callCount} p95Ms={e.p95Ms} />
       ))}
     </div>
   );

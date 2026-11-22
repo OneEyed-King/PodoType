@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 // Four-number "is anything on fire" strip — Watched / Healthy / Attention /
 // Unknown — meant to answer that question before scrolling to a single
 // service row. Distinct from AttentionBanner below it: that's a dismissible
@@ -9,23 +11,24 @@
 // both builds already use (true = up, false = down, null/undefined =
 // not yet known), so this works unmodified for either.
 export default function StatusSummaryStrip({ services }) {
+  const { t } = useTranslation();
   const watched = services.length;
   const healthy = services.filter((s) => s.up === true).length;
   const attention = services.filter((s) => s.up === false).length;
   const unknown = watched - healthy - attention;
 
   const cells = [
-    { key: 'watched', label: 'Watched', value: watched, sub: 'containers in view', cls: 'text-accent', dot: 'bg-accent' },
-    { key: 'healthy', label: 'Healthy', value: healthy, sub: 'reporting up', cls: 'text-up', dot: 'bg-up' },
+    { key: 'watched', label: t('statusSummary.watched'), value: watched, sub: t('statusSummary.watchedSub'), cls: 'text-accent', dot: 'bg-accent' },
+    { key: 'healthy', label: t('statusSummary.healthy'), value: healthy, sub: t('statusSummary.healthySub'), cls: 'text-up', dot: 'bg-up' },
     {
       key: 'attention',
-      label: 'Attention',
+      label: t('statusSummary.attention'),
       value: attention,
-      sub: 'down or degraded',
+      sub: t('statusSummary.attentionSub'),
       cls: attention > 0 ? 'text-down' : 'text-ink-dim',
       dot: attention > 0 ? 'bg-down' : 'bg-unknown',
     },
-    { key: 'unknown', label: 'Unknown', value: unknown, sub: 'health not confirmed', cls: 'text-ink-dim', dot: 'bg-unknown' },
+    { key: 'unknown', label: t('statusSummary.unknown'), value: unknown, sub: t('statusSummary.unknownSub'), cls: 'text-ink-dim', dot: 'bg-unknown' },
   ];
 
   return (

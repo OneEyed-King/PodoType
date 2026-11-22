@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 // Guided first-run walkthrough — the gap spencer_cole12 on Reddit raised
 // independently ("have you considered a guided walkthrough for first time
@@ -39,37 +40,21 @@ function markSeen() {
 // Each step optionally navigates first (`section`), then measures a DOM
 // node identified by a CSS selector (`selector`). `selector: null` is a
 // valid step — a plain centered card with no spotlight, used for the
-// intro/outro.
-function buildSteps(hosted) {
+// intro/outro. title/body are resolved via t() at render time (see
+// buildSteps below) rather than stored here, so this stays a stable,
+// translation-agnostic structure.
+function buildStepDefs(hosted) {
   const steps = [
-    {
-      selector: null,
-      title: 'Quick tour of PodoType',
-      body: "A few short steps — where services show up, what the health summary means, how to tell if tracing itself is working, and where to drill into a slow request. Skip any time.",
-    },
-    {
-      selector: '[data-tour="nav-services"]',
-      title: 'Services, found automatically',
-      body: 'Every container running on this host shows up here on its own — no SDK, no per-service config, no code changes. Watch the ones you care about from this list.',
-    },
-    {
-      section: 'overview',
-      selector: '[data-tour="overview-summary"]',
-      title: "What's healthy, at a glance",
-      body: "This reads back as a plain sentence: how many watched services are up, and whether anything's actively breaching an alert threshold right now.",
-    },
+    { selector: null, i18nKey: 'intro' },
+    { selector: '[data-tour="nav-services"]', i18nKey: 'services' },
+    { section: 'overview', selector: '[data-tour="overview-summary"]', i18nKey: 'overview' },
     {
       section: 'overview',
       selector: '[data-tour="preflight-area"]',
-      title: "If tracing itself isn't working",
-      body: "Zero-code tracing relies on the host kernel supporting eBPF. If that's missing or beyla fails to start, this exact spot names the problem instead of just showing empty charts.",
+      i18nKey: 'preflight',
       skipIf: hosted, // self-hosted only — see engineApi.js's own comment on why hostedApi has no /api/preflight yet
     },
-    {
-      selector: '[data-tour="nav-traces"]',
-      title: 'Drill into a slow request',
-      body: "Once a service is reporting, Traces is where you see the actual call path and where time was spent — click into any trace for the full waterfall.",
-    },
+    { selector: '[data-tour="nav-traces"]', i18nKey: 'traces' },
   ];
   return steps.filter((s) => !s.skipIf);
 }
@@ -78,11 +63,17 @@ function buildSteps(hosted) {
 // that names `section` calls onNavigate(section) on entry so the right
 // page is showing before this tries to measure its target.
 export default function OnboardingTour({ onNavigate, onFinish, hosted }) {
+  const { t } = useTranslation();
   const [stepIndex, setStepIndex] = useState(0);
   const [rect, setRect] = useState(null);
-  const steps = buildSteps(hosted);
-  const step = steps[stepIndex];
-  const isLast = stepIndex === steps.length - 1;
+  const stepDefs = buildStepDefs(hosted);
+  const stepDef = stepDefs[stepIndex];
+  const step = {
+    ...stepDef,
+    title: t(`onboarding.${stepDef.i18nKey}.title`),
+    body: t(`onboarding.${stepDef.i18nKey}.body`),
+  };
+  const isLast = stepIndex === stepDefs.length - 1;
 
   useEffect(() => {
     if (step.section) onNavigate(step.section);
@@ -174,13 +165,13 @@ export default function OnboardingTour({ onNavigate, onFinish, hosted }) {
         style={cardStyle}
       >
         <div className="font-mono text-[11px] text-muted uppercase tracking-wider mb-1.5">
-          Step {stepIndex + 1} of {steps.length}
+          {t('onboarding.step', { current: stepIndex + 1, total: stepDefs.length })}
         </div>
         <div className="text-[15px] font-bold text-ink mb-1.5">{step.title}</div>
         <div className="text-[13px] text-ink-dim leading-relaxed mb-4">{step.body}</div>
         <div className="flex items-center justify-between">
           <button type="button" onClick={finish} className="text-[12px] font-semibold text-muted hover:text-ink">
-            Skip tour
+            {t('onboarding.skipTour')}
           </button>
           <div className="flex items-center gap-2">
             {stepIndex > 0 && (
@@ -189,7 +180,7 @@ export default function OnboardingTour({ onNavigate, onFinish, hosted }) {
                 onClick={back}
                 className="text-[13px] font-semibold rounded-md px-3 py-1.5 border text-ink bg-panel-raised border-border hover:border-accent"
               >
-                Back
+                {t('onboarding.back')}
               </button>
             )}
             <button
@@ -197,7 +188,7 @@ export default function OnboardingTour({ onNavigate, onFinish, hosted }) {
               onClick={next}
               className="text-[13px] font-semibold text-[#f5f7fc] bg-accent hover:brightness-110 rounded-md px-3.5 py-1.5"
             >
-              {isLast ? 'Done' : 'Next'}
+              {isLast ? t('onboarding.done') : t('onboarding.next')}
             </button>
           </div>
         </div>

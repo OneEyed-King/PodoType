@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 // One place to turn tracing on/off for several services at once, instead of
 // opening each service's own row, expanding its tracing panel, and running
@@ -12,6 +13,7 @@ import { useState } from 'react';
 // currently-traced service here and hitting Generate turns tracing off for
 // it, same as using that service's own Disable button would.
 export default function BulkOtelSetup({ services, supportedOtelLanguages, languageGuesses, onApply, onClose }) {
+  const { t } = useTranslation();
   // Only watched services make sense here — tracing on something podotype
   // isn't even monitoring can't show up in the merged file either way (see
   // resolveOtelOverrideEntries in server.js), so listing unwatched ones
@@ -37,8 +39,6 @@ export default function BulkOtelSetup({ services, supportedOtelLanguages, langua
     return map; // service name -> language; presence in the map = checked
   });
   const [applying, setApplying] = useState(false);
-
-  const defaultLanguage = supportedOtelLanguages[0] || '';
 
   function toggle(name) {
     setSelection((prev) => {
@@ -68,21 +68,18 @@ export default function BulkOtelSetup({ services, supportedOtelLanguages, langua
     <div className="mb-5 p-3.5 rounded-lg bg-panel border border-border-soft flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <div className="font-bold text-[14px]">Bulk tracing setup</div>
-          <div className="text-muted text-[13px] mt-0.5">
-            Check the services to trace, pick each one's language, then generate one merged config covering all of
-            them. Unchecking an already-traced service here turns tracing off for it.
-          </div>
+          <div className="font-bold text-[14px]">{t('bulkOtelSetup.title')}</div>
+          <div className="text-muted text-[13px] mt-0.5">{t('bulkOtelSetup.description')}</div>
         </div>
-        <button type="button" onClick={onClose} title="Close" className="link-btn text-muted hover:text-ink text-[15px] leading-none shrink-0">
+        <button type="button" onClick={onClose} title={t('bulkOtelSetup.close')} className="link-btn text-muted hover:text-ink text-[15px] leading-none shrink-0">
           ×
         </button>
       </div>
 
       {watched.length === 0 ? (
-        <p className="text-muted text-[14px] m-0">No watched services yet — watch some first, then come back here.</p>
+        <p className="text-muted text-[14px] m-0">{t('bulkOtelSetup.noWatchedServices')}</p>
       ) : supportedOtelLanguages.length === 0 ? (
-        <p className="text-muted text-[14px] m-0">No OTel languages supported by this build yet.</p>
+        <p className="text-muted text-[14px] m-0">{t('bulkOtelSetup.noLanguagesSupported')}</p>
       ) : (
         <>
           <div className="flex flex-col gap-1.5 max-h-[320px] overflow-y-auto">
@@ -97,9 +94,9 @@ export default function BulkOtelSetup({ services, supportedOtelLanguages, langua
               const guessHint =
                 guess && guess.guess && !checked
                   ? guess.supported
-                    ? `guess: ${guess.guess} (${guess.reason})`
+                    ? t('bulkOtelSetup.guessSupported', { guess: guess.guess, reason: guess.reason })
                     : guess.note
-                    ? `${guess.guess} — ${guess.note}`
+                    ? t('bulkOtelSetup.guessUnsupported', { guess: guess.guess, note: guess.note })
                     : null
                   : null;
               return (
@@ -143,10 +140,10 @@ export default function BulkOtelSetup({ services, supportedOtelLanguages, langua
               disabled={applying}
               className="text-[14px] font-semibold text-[#f5f7fc] bg-accent hover:brightness-110 disabled:opacity-60 rounded-md px-3.5 py-1.5"
             >
-              {applying ? 'Generating…' : 'Generate config'}
+              {applying ? t('bulkOtelSetup.generating') : t('bulkOtelSetup.generateConfig')}
             </button>
             <span className="font-mono text-[12px] text-muted">
-              {selectedCount} of {watched.length} selected
+              {t('bulkOtelSetup.selectedCount', { selected: selectedCount, total: watched.length })}
             </span>
           </div>
         </>

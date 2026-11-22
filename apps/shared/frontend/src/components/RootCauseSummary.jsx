@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api.js';
 
 // Reddit/reviewer feedback (multiple reviewers, independently): the
@@ -17,19 +18,20 @@ import { api } from '../api.js';
 // origin", never a hard claim of causation.
 const POLL_MS = 5000;
 
-function fmtAgo(iso) {
-  const ms = Date.now() - new Date(iso).getTime();
-  if (!Number.isFinite(ms) || ms < 0) return null;
-  const seconds = Math.round(ms / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  return `${hours}h ${minutes % 60}m ago`;
-}
-
 export default function RootCauseSummary({ onSelectService }) {
+  const { t } = useTranslation();
   const [alerts, setAlerts] = useState(null);
+
+  function fmtAgo(iso) {
+    const ms = Date.now() - new Date(iso).getTime();
+    if (!Number.isFinite(ms) || ms < 0) return null;
+    const seconds = Math.round(ms / 1000);
+    if (seconds < 60) return t('rootCause.agoSeconds', { count: seconds });
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return t('rootCause.agoMinutes', { count: minutes });
+    const hours = Math.floor(minutes / 60);
+    return t('rootCause.agoHoursMinutes', { hours, minutes: minutes % 60 });
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -67,10 +69,11 @@ export default function RootCauseSummary({ onSelectService }) {
   if (affectedServices.length === 0) return null; // all alerts trace back to the same single service
 
   const originAgo = fmtAgo(origin.firstBreachAt);
+  const agoText = originAgo ? t('rootCause.agoSuffix', { ago: originAgo }) : '';
 
   return (
     <div className="mb-5 border border-slow/40 bg-slow/5 rounded-lg px-3.5 py-2.5">
-      <div className="text-[12px] font-bold uppercase tracking-wider text-slow mb-1">Likely origin</div>
+      <div className="text-[12px] font-bold uppercase tracking-wider text-slow mb-1">{t('rootCause.title')}</div>
       <div className="text-[13px] text-ink leading-relaxed">
         <button
           type="button"
@@ -79,9 +82,12 @@ export default function RootCauseSummary({ onSelectService }) {
         >
           {origin.service}
         </button>{' '}
-        degraded first{originAgo ? ` (${originAgo})` : ''} — {affectedServices.length} other service
-        {affectedServices.length === 1 ? '' : 's'} ({affectedServices.join(', ')}) started breaching after.
-        This is based on alert timing, not a confirmed cause — worth checking {origin.service} first.
+        {t('rootCause.degradedFirst', {
+          count: affectedServices.length,
+          service: origin.service,
+          ago: agoText,
+          others: affectedServices.join(', '),
+        })}
       </div>
     </div>
   );

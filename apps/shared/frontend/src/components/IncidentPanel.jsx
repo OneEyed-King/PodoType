@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api.js';
 
 // Shared across both builds (uses the unified api.js dispatch, not
@@ -11,17 +12,18 @@ import { api } from '../api.js';
 // something fires is indistinguishable from a panel that was never built.
 const POLL_MS = 5000;
 
-function sevDot(severity) {
-  return severity === 'critical' ? 'bg-down' : 'bg-slow';
-}
-
-function sevLabel(severity) {
-  return severity === 'critical' ? 'Critical' : 'Warning';
-}
-
 export default function IncidentPanel({ rangeMinutes, rangeLabel, onSelectIncident }) {
+  const { t } = useTranslation();
   const [alerts, setAlerts] = useState(null);
   const [error, setError] = useState(null);
+
+  function sevDot(severity) {
+    return severity === 'critical' ? 'bg-down' : 'bg-slow';
+  }
+
+  function sevLabel(severity) {
+    return severity === 'critical' ? t('incidentPanel.critical') : t('incidentPanel.warning');
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -49,7 +51,7 @@ export default function IncidentPanel({ rangeMinutes, rangeLabel, onSelectIncide
   if (error) {
     return (
       <div className="mb-5 border border-border rounded-lg px-3.5 py-2.5 text-[13px] text-down">
-        Couldn't load incidents — {error}
+        {t('incidentPanel.couldntLoad', { error })}
       </div>
     );
   }
@@ -74,28 +76,28 @@ export default function IncidentPanel({ rangeMinutes, rangeLabel, onSelectIncide
   return (
     <div className="mb-5 border border-border rounded-lg overflow-hidden">
       <div className="px-3.5 py-2 border-b border-border-soft flex items-center justify-between gap-2 flex-wrap">
-        <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim">Incidents</span>
+        <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim">{t('incidentPanel.title')}</span>
         <div className="flex items-center gap-2">
           {criticalCount > 0 && (
             <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-down bg-down/10 border border-down/30 rounded-full px-2 py-0.5">
-              {criticalCount} critical
+              {t('incidentPanel.criticalCount', { count: criticalCount })}
             </span>
           )}
           {warningCount > 0 && (
             <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-slow bg-slow/10 border border-slow/30 rounded-full px-2 py-0.5">
-              {warningCount} warning
+              {t('incidentPanel.warningCount', { count: warningCount })}
             </span>
           )}
           {active.length === 0 && (
             <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-up bg-up/10 border border-up/30 rounded-full px-2 py-0.5">
-              All clear
+              {t('incidentPanel.allClear')}
             </span>
           )}
         </div>
       </div>
 
       {nothingToShow ? (
-        <div className="px-3.5 py-3 text-[13px] text-muted">No incidents in the last {rangeLabel}.</div>
+        <div className="px-3.5 py-3 text-[13px] text-muted">{t('incidentPanel.noIncidentsRange', { range: rangeLabel })}</div>
       ) : (
         <div className="divide-y divide-border-soft">
           {active.map((a) => (
@@ -111,7 +113,7 @@ export default function IncidentPanel({ rangeMinutes, rangeLabel, onSelectIncide
                 <span className="text-[13px] text-ink-dim [overflow-wrap:anywhere]">{a.message}</span>
               </div>
               <span className="font-mono text-[11px] text-muted shrink-0">
-                since {new Date(a.firstBreachAt).toLocaleTimeString()}
+                {t('incidentPanel.since', { time: new Date(a.firstBreachAt).toLocaleTimeString() })}
               </span>
             </button>
           ))}
@@ -124,7 +126,7 @@ export default function IncidentPanel({ rangeMinutes, rangeLabel, onSelectIncide
             >
               <div className="flex items-center gap-2 min-w-0">
                 <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-muted" />
-                <span className="font-mono text-[11px] font-bold text-muted uppercase shrink-0">Resolved</span>
+                <span className="font-mono text-[11px] font-bold text-muted uppercase shrink-0">{t('incidentPanel.resolved')}</span>
                 <span className="text-[13px] text-ink-dim [overflow-wrap:anywhere]">{h.message}</span>
               </div>
               <span className="font-mono text-[11px] text-muted shrink-0">{new Date(h.at).toLocaleString()}</span>

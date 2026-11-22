@@ -2,7 +2,7 @@ name: Build and push app image
 
 # Builds the self-hosted "app" image (engine + dashboard + Beyla, combined
 # — see apps/self-hosted/engine/Dockerfile) and pushes it to this repo's
-# own GHCR namespace on every push to main (tags :latest + the commit
+# own GHCR namespace on every push to master (tags :latest + the commit
 # sha, so a bad build can be rolled back to a known-good sha) and on
 # version tags (v1.2.3 -> image tag 1.2.3). linux/amd64 explicitly:
 # cheap VPS instances are amd64, and building on GitHub's runners means
@@ -10,7 +10,7 @@ name: Build and push app image
 #
 # Also runs on every pull request targeting main — this is what makes a
 # check actually show up on the PR itself (merging a PR only creates a
-# push to main AFTER the fact, which is too late to catch a broken build
+# push to master AFTER the fact, which is too late to catch a broken build
 # before it lands). A PR run builds the exact same image to prove the
 # Dockerfile/build still works, but never pushes it to GHCR — `push` to
 # the registry only happens on the real push-to-main/tag event, not on
@@ -18,10 +18,10 @@ name: Build and push app image
 # `packages: write` for this repo's GITHUB_TOKEN anyway).
 on:
   push:
-    branches: [main]
+    branches: [master]
     tags: ['v*.*.*']
   pull_request:
-    branches: [main]
+    branches: [master]
   workflow_dispatch: {} # manual rebuild from the Actions tab, no new commit needed
 
 env:
@@ -64,7 +64,7 @@ jobs:
 
       # push: false on a pull_request event — build-only, just to prove
       # the image still builds cleanly; the real push-to-GHCR only
-      # happens on an actual push to main or a version tag.
+      # happens on an actual push to master or a version tag.
       - name: Build (and push on main/tags)
         uses: docker/build-push-action@v5
         with:
