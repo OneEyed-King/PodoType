@@ -542,6 +542,11 @@ function otlpNanoToClickHouseDateTime64(unixNano) {
 // the shape fetchTraceDetail below reads back out, just in the opposite
 // direction — writing spans instead of reading them.
 async function ingestOtlpTraces(exportRequest) {
+  // Alerts + uptime only mode — accept and silently drop the batch rather
+  // than erroring, so Beyla's own OTLP exporter (which keeps running
+  // regardless of this toggle, see defaultObservabilityConfig's comment)
+  // doesn't start logging export failures the moment someone opts out.
+  if (!isObservabilityEnabled()) return;
   const rows = [];
   for (const rs of exportRequest.resourceSpans || []) {
     const resourceAttrs = rs.resource && rs.resource.attributes;
@@ -2361,21 +2366,27 @@ async function reconcileLogIngestion() {
 // a ClickHouse that's down.
 async function flushLogPatterns() {
   const nowStr = new Date().toISOString().replace('T', ' ').replace('Z', '');
+  const observabilityEnabled = isObservabilityEnabled();
   const rows = [];
   for (const [serviceName, entry] of logIngestState) {
     for (const [template, agg] of entry.patterns) {
-      rows.push({
-        Timestamp: nowStr,
-        ServiceName: serviceName,
-        Pattern: template,
-        Level: agg.level,
-        Count: agg.count,
-        SampleLine: agg.sample,
-      });
+      if (observabilityEnabled) {
+        rows.push({
+          Timestamp: nowStr,
+          ServiceName: serviceName,
+          Pattern: template,
+          Level: agg.level,
+          Count: agg.count,
+          SampleLine: agg.sample,
+        });
+      }
     }
+    // Clear either way — when disabled there's nowhere for this to go, so
+    // accumulating it would just be an unbounded, never-flushed memory
+    // leak rather than anything useful.
     entry.patterns.clear();
   }
-  if (rows.length === 0) return;
+  if (!observabilityEnabled || rows.length === 0) return;
   try {
     const insertSql = `INSERT INTO ${CLICKHOUSE_LOG_PATTERNS_TABLE} FORMAT JSONEachRow`;
     const url = `${CLICKHOUSE_URL}/?database=${encodeURIComponent(CLICKHOUSE_DATABASE)}&query=${encodeURIComponent(insertSql)}`;
@@ -3907,6 +3918,44 @@ function getPollIntervals() {
   return loadState().pollIntervals;
 }
 
+// ---- Observability opt-out ("alerts + uptime only" mode) --------------
+//
+// Some installs only care about alerting and uptime — they never open
+// Traces/Service map/Query console/Logs or any ClickHouse-backed history
+// chart. This one flag lets them turn OFF everything that WRITES to
+// ClickHouse (container metrics snapshots, log pattern flushes, trace
+// ingestion) while leaving every live/in-memory thing running exactly as
+// before: Docker discovery, watch/unwatch, manual HTTP/TCP health checks,
+// TLS cert expiry, and all alerting — none of those read ClickHouse
+// history, they all work off live state, so they're completely
+// unaffected either way.
+//
+// Deliberately does NOT stop Beyla or ClickHouse themselves, and does NOT
+// require (or document) touching docker-compose.yml at all — both keep
+// running in the background the entire time, same as every other
+// container. Flipping this back on on is just "start writing to a
+// database that was already there the whole time" — no restart of
+// anything, anywhere, ever. See the per-call-site checks in
+// persistContainerMetricsSnapshot, flushLogPatterns, and ingestOtlpTraces
+// for where this is actually enforced.
+function defaultObservabilityConfig() {
+  return { enabled: true };
+}
+
+function mergeObservabilityConfig(saved) {
+  const s = saved || {};
+  return { enabled: typeof s.enabled === 'boolean' ? s.enabled : defaultObservabilityConfig().enabled };
+}
+
+// Same "always read fresh from disk, never trust an in-memory mirror"
+// convention as getPollIntervals — called from inside the hot write paths
+// this gates (persistContainerMetricsSnapshot, flushLogPatterns,
+// ingestOtlpTraces) so a toggle flip takes effect on the very next tick,
+// not after a restart.
+function isObservabilityEnabled() {
+  return loadState().observability.enabled;
+}
+
 // The "Improve the cost panel" backlog item (#15): auto-estimating host
 // cost from detected CPU/RAM (see UsageStats.jsx's VPS_COST_REFERENCE) is
 // necessarily a rough guess — the same specs can be priced completely
@@ -3942,6 +3991,7 @@ function loadState() {
       alertHistory: [],
       costOverride: null,
       pollIntervals: mergePollIntervals(null),
+      observability: mergeObservabilityConfig(null),
     };
   }
   // Migrate the pre-health-check shape ({ watched: { name: bool } }) rather
@@ -3960,6 +4010,7 @@ function loadState() {
       alertHistory: Array.isArray(raw.alertHistory) ? raw.alertHistory : [],
       costOverride: mergeCostOverride(raw.costOverride),
       pollIntervals: mergePollIntervals(raw.pollIntervals),
+      observability: mergeObservabilityConfig(raw.observability),
     };
   }
   const services = (raw && raw.services) || {};
@@ -3996,6 +4047,12 @@ function loadState() {
     // "merge onto defaults" treatment every other settings section here
     // already gets.
     pollIntervals: mergePollIntervals(raw && raw.pollIntervals),
+    // Alerts + uptime only opt-out — see defaultObservabilityConfig's own
+    // comment. Absent on any state.json saved before this existed, same
+    // "merge onto defaults" treatment every other settings section here
+    // already gets; defaults to enabled so existing installs see no
+    // behavior change.
+    observability: mergeObservabilityConfig(raw && raw.observability),
   };
 }
 
@@ -5881,6 +5938,27 @@ app.post('/api/poll-intervals', (req, res) => {
   res.json(next);
 });
 
+// ---- Observability opt-out ("alerts + uptime only" mode) --------------
+//
+// See defaultObservabilityConfig's own comment for the full rationale.
+// Unlike poll-intervals, there's no applyPollIntervals-style "restart
+// timers" step here on purpose — every write call-site reads this fresh
+// from state.json on its own (see isObservabilityEnabled), so flipping
+// the flag takes effect on the very next poll cycle with nothing to
+// restart.
+app.get('/api/observability-config', (req, res) => {
+  res.json(loadState().observability);
+});
+
+app.post('/api/observability-config', (req, res) => {
+  const state = loadState();
+  const body = req.body || {};
+  const next = mergeObservabilityConfig({ ...state.observability, ...body });
+  state.observability = next;
+  saveState(state);
+  res.json(next);
+});
+
 // ---- Trace retention settings ------------------------------------------
 //
 // Was env-var-only (CLICKHOUSE_TRACE_TTL_HOURS, fixed at container start) —
@@ -6066,6 +6144,10 @@ async function insertContainerMetricsRows(rows) {
 
 async function persistContainerMetricsSnapshot() {
   const state = loadState();
+  // Alerts + uptime only mode — nothing downstream of this reads
+  // ClickHouse history, so there's no reason to even hit the Docker API
+  // for this cycle.
+  if (!state.observability.enabled) return;
   const watchedNames = Object.entries(state.services)
     .filter(([, e]) => e.watched)
     .map(([n]) => n);

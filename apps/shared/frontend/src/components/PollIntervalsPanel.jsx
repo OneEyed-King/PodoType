@@ -168,7 +168,7 @@ export default function PollIntervalsPanel() {
     <div className="mb-5 border border-border rounded-lg overflow-hidden">
       <div className="px-3.5 py-2 flex items-center justify-between gap-2 flex-wrap">
         <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim inline-flex items-center gap-1.5">
-          Poll intervals
+          Configure poll intervals
           <InfoDot title="How often this app checks things in the background — health checks, CPU/memory, alert evaluation, TLS certificate expiry, and so on. Editable here instead of an env var + container restart." />
         </span>
         <div className="flex items-center gap-2.5">

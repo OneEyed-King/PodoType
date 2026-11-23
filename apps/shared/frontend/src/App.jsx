@@ -13,6 +13,8 @@ import RetentionPanel from './components/RetentionPanel.jsx';
 import LogRetentionPanel from './components/LogRetentionPanel.jsx';
 import PollIntervalsPanel from './components/PollIntervalsPanel.jsx';
 import AppearancePanel from './components/AppearancePanel.jsx';
+import ObservabilityPanel from './components/ObservabilityPanel.jsx';
+import ObservabilityDisabledNotice from './components/ObservabilityDisabledNotice.jsx';
 import ToastBanner from './components/ToastBanner.jsx';
 import HealthCheckModal from './components/HealthCheckModal.jsx';
 import OtelInstructions from './components/OtelInstructions.jsx';
@@ -102,6 +104,11 @@ export default function App() {
   // setupCheck below. null = modal closed; set = { name, existing,
   // refreshFn } for whichever service's "set check" button was clicked.
   const [checkModal, setCheckModal] = useState(null);
+  // "Alerts + uptime only" opt-out (self-hosted only — see
+  // ObservabilityPanel.jsx/server.js's defaultObservabilityConfig). null
+  // means "not fetched yet" and is treated as enabled so nothing flashes
+  // hidden before the first fetch resolves.
+  const [observabilityEnabled, setObservabilityEnabled] = useState(null);
 
   // Two-step flow: pick services, then land on a page that only shows what
   // you picked. "monitor" is the steady-state home once anything is
@@ -373,6 +380,15 @@ export default function App() {
     await hostedToggleService(name);
   }
   // --- end hosted-only state/effects ---
+
+  useEffect(() => {
+    if (HOSTED) return;
+    api
+      .observabilityConfig()
+      .then((body) => setObservabilityEnabled(body.enabled))
+      .catch(() => {}); // leave it at null (treated as enabled) on failure
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function refresh() {
     try {
@@ -1196,7 +1212,11 @@ export default function App() {
                   <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">03 /</span>
                   {t('app.sectionServiceMap')}
                 </h1>
-                <ServiceMap />
+                {observabilityEnabled === false ? (
+                  <ObservabilityDisabledNotice label={t('app.sectionServiceMap')} />
+                ) : (
+                  <ServiceMap />
+                )}
               </>
             )}
 
@@ -1207,7 +1227,11 @@ export default function App() {
                   {t('app.sectionTraces')}
                 </h1>
                 <p className="text-[14px] text-ink-dim mb-4">{t('app.tracesPageIntro')}</p>
-                <QueryConsole onClose={() => setSection('overview')} />
+                {observabilityEnabled === false ? (
+                  <ObservabilityDisabledNotice label={t('app.sectionTraces')} />
+                ) : (
+                  <QueryConsole onClose={() => setSection('overview')} />
+                )}
               </>
             )}
 
@@ -1249,6 +1273,7 @@ export default function App() {
                   <span className="text-muted font-mono text-[13px] font-normal align-middle mr-2">07 /</span>
                   {t('app.sectionSettings')}
                 </h1>
+                <ObservabilityPanel onChange={setObservabilityEnabled} />
                 <RetentionPanel storage={storage} />
                 <LogRetentionPanel />
                 <PollIntervalsPanel />
@@ -1289,6 +1314,7 @@ export default function App() {
                 onRemoveCheck={() => removeCheck(detailService.name)}
                 onSelectTab={(tabId) => selectTab(detailService.name, tabId)}
                 storageStatus={storage ? storage.status : null}
+                observabilityEnabled={observabilityEnabled}
                 onBack={() => setSection('services')}
               />
             )}

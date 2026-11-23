@@ -366,8 +366,8 @@
     "active": "Active"
   },
   "retentionPanel": {
-    "traceRetention": "Trace retention",
-    "configureTraceRetention": "Configure trace retention",
+    "traceRetention": "Configure trace retention period",
+    "configureTraceRetention": "Configure trace retention period",
     "couldntLoad": "Couldn't load retention settings: {{error}}",
     "loading": "Loading retention settings…",
     "days_one": "{{count}} day",
@@ -393,14 +393,14 @@
   "logRetentionPanel": {
     "couldntLoad": "Couldn't load log retention settings: {{error}}",
     "loading": "Loading log retention settings…",
-    "configureTitle": "Configure log-pattern retention",
+    "configureTitle": "Configure log retention period",
     "recentVolume_one": "Recent volume: ~{{bytes}}/day (based on the last {{count}} full day) across every service with log storage turned on.",
     "recentVolume_other": "Recent volume: ~{{bytes}}/day (based on the last {{count}} full days) across every service with log storage turned on.",
     "noVolumeEstimate": "No volume estimate yet — this fills in once at least one service has log storage enabled (see any service's Logs → History tab) and has been running long enough to have a full day of data.",
     "tooltip": "This bounds how long STORED log patterns are kept — a separate setting from trace retention above, and from whatever Docker's own log driver does with its own copy of your logs. Shortening this doesn't reduce Docker's own log disk usage at all.",
     "separateNote": "Separate from trace retention — this only affects services with log storage turned on.",
     "reclaimTooltip": "Without this, shortening retention only changes the cutoff going forward — old rows still age out on ClickHouse's own background schedule, which can take a while. Checking this forces ClickHouse to rewrite its data and drop expired rows right now instead.",
-    "headerLabel": "Log-pattern retention"
+    "headerLabel": "Configure log retention period"
   },
   "logsPanel": {
     "title": "Logs",

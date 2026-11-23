@@ -351,8 +351,8 @@
     "active": "アクティブ"
   },
   "retentionPanel": {
-    "traceRetention": "トレース保持期間",
-    "configureTraceRetention": "トレース保持期間を設定",
+    "traceRetention": "トレースの保持期間を設定",
+    "configureTraceRetention": "トレースの保持期間を設定",
     "couldntLoad": "保持設定を読み込めませんでした: {{error}}",
     "loading": "保持設定を読み込み中…",
     "days_other": "{{count}}日",
@@ -376,13 +376,13 @@
   "logRetentionPanel": {
     "couldntLoad": "ログ保持設定を読み込めませんでした: {{error}}",
     "loading": "ログ保持設定を読み込み中…",
-    "configureTitle": "ログパターンの保持を設定",
+    "configureTitle": "ログの保持期間を設定",
     "recentVolume_other": "直近のボリューム: ~{{bytes}}/日（ログ保存が有効なすべてのサービスで、直近{{count}}日間の完全な日に基づく）。",
     "noVolumeEstimate": "まだボリューム推定はありません — 少なくとも1つのサービスでログ保存が有効になり（任意のサービスのLogs→Historyタブを参照）、1日分の完全なデータが得られるまで十分に稼働すると表示されます。",
     "tooltip": "これは保存されたログパターンを保持する期間を制限します — 上記のトレース保持とは別の設定であり、Docker自身のログドライバーがログのコピーに対して行うこととも別です。これを短くしてもDocker自身のログのディスク使用量は減りません。",
     "separateNote": "トレース保持とは別です — ログ保存が有効なサービスのみに影響します。",
     "reclaimTooltip": "これをオンにしない場合、保持期間を短くしても今後の境界だけが変わります。古い行はClickHouse自身のバックグラウンドスケジュールで期限切れになり、時間がかかることがあります。これをチェックすると、ClickHouseはデータを即座に書き換えて期限切れの行を削除します。",
-    "headerLabel": "ログパターン保持"
+    "headerLabel": "ログの保持期間を設定"
   },
   "logsPanel": {
     "title": "ログ",

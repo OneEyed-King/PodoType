@@ -6,6 +6,7 @@ import LogsPanel from './LogsPanel.jsx';
 import ServiceAlertOverrides from './ServiceAlertOverrides.jsx';
 import ServiceSloPanel from './ServiceSloPanel.jsx';
 import ServiceDependencies from './ServiceDependencies.jsx';
+import ObservabilityDisabledNotice from './ObservabilityDisabledNotice.jsx';
 
 // The manual-check row + horizontal tab strip that used to live inline
 // inside WatchedRow's own "expanded" state (see WatchedRow.jsx's own
@@ -28,6 +29,10 @@ export default function ServiceDetailPanel({
   supportsManualCheck = true,
   supportsCodeTracing = true,
   supportsAlertOverrides = true,
+  // null (self-hosted, not fetched yet) is treated as enabled so nothing
+  // flashes hidden before the first fetch resolves. Absent entirely (e.g.
+  // hosted, which has no opt-out) behaves the same way.
+  observabilityEnabled = null,
 }) {
   const { t } = useTranslation();
   const TABS = [
@@ -83,15 +88,33 @@ export default function ServiceDetailPanel({
           ))}
         </div>
         <div className="p-3">
-          {tab === 'traces' && (
-            <TracesPanel svc={svc} cfg={cfg} supportsCodeTracing={supportsCodeTracing} />
-          )}
+          {tab === 'traces' &&
+            (observabilityEnabled === false ? (
+              <ObservabilityDisabledNotice label={t('serviceDetailPanel.tabTraces')} />
+            ) : (
+              <TracesPanel svc={svc} cfg={cfg} supportsCodeTracing={supportsCodeTracing} />
+            ))}
           {tab === 'health' && <ResourceHealthPanel svc={svc} />}
-          {tab === 'metrics' && <MetricsHistoryRange serviceName={svc.name} />}
-          {tab === 'logs' && <LogsPanel serviceName={svc.name} storageStatus={storageStatus} />}
+          {tab === 'metrics' &&
+            (observabilityEnabled === false ? (
+              <ObservabilityDisabledNotice label={t('serviceDetailPanel.tabMetrics')} />
+            ) : (
+              <MetricsHistoryRange serviceName={svc.name} />
+            ))}
+          {tab === 'logs' &&
+            (observabilityEnabled === false ? (
+              <ObservabilityDisabledNotice label={t('serviceDetailPanel.tabLogs')} />
+            ) : (
+              <LogsPanel serviceName={svc.name} storageStatus={storageStatus} />
+            ))}
           {tab === 'alerts' && supportsAlertOverrides && <ServiceAlertOverrides serviceName={svc.name} />}
           {tab === 'slo' && <ServiceSloPanel svc={svc} />}
-          {tab === 'dependencies' && <ServiceDependencies serviceName={svc.name} />}
+          {tab === 'dependencies' &&
+            (observabilityEnabled === false ? (
+              <ObservabilityDisabledNotice label={t('serviceDetailPanel.tabDependencies')} />
+            ) : (
+              <ServiceDependencies serviceName={svc.name} />
+            ))}
         </div>
       </div>
     </div>

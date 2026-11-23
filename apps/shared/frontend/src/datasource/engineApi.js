@@ -165,6 +165,15 @@ export const engineApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(partial),
     }),
+  // Alerts + uptime only opt-out — a single `enabled` flag. POST is a
+  // partial update, same contract as every other settings POST here.
+  observabilityConfig: () => fetchJSON('/api/observability-config'),
+  setObservabilityConfig: (partial) =>
+    fetchJSON('/api/observability-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(partial),
+    }),
   alertsConfig: () => fetchJSON('/api/alerts/config'),
   setAlertsConfig: (partial) =>
     fetchJSON('/api/alerts/config', {

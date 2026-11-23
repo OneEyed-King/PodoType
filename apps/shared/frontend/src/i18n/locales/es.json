@@ -366,8 +366,8 @@
     "active": "Activo"
   },
   "retentionPanel": {
-    "traceRetention": "Retención de trazas",
-    "configureTraceRetention": "Configurar retención de trazas",
+    "traceRetention": "Configurar período de retención de trazas",
+    "configureTraceRetention": "Configurar período de retención de trazas",
     "couldntLoad": "No se pudo cargar la configuración de retención: {{error}}",
     "loading": "Cargando configuración de retención…",
     "days_one": "{{count}} día",
@@ -393,14 +393,14 @@
   "logRetentionPanel": {
     "couldntLoad": "No se pudo cargar la configuración de retención de registros: {{error}}",
     "loading": "Cargando configuración de retención de registros…",
-    "configureTitle": "Configurar retención de patrones de registro",
+    "configureTitle": "Configurar período de retención de registros",
     "recentVolume_one": "Volumen reciente: ~{{bytes}}/día (basado en el último día completo) en todos los servicios con almacenamiento de registros activado.",
     "recentVolume_other": "Volumen reciente: ~{{bytes}}/día (basado en los últimos {{count}} días completos) en todos los servicios con almacenamiento de registros activado.",
     "noVolumeEstimate": "Aún no hay estimación de volumen — aparecerá en cuanto al menos un servicio tenga el almacenamiento de registros activado (ver la pestaña Logs → Historial de cualquier servicio) y haya estado en ejecución el tiempo suficiente para tener un día completo de datos.",
     "tooltip": "Esto limita cuánto tiempo se conservan los patrones de registro ALMACENADOS — una configuración separada de la retención de trazas anterior, y de lo que haga el propio controlador de registros de Docker con su propia copia de tus registros. Acortar esto no reduce el uso de disco de registros propio de Docker.",
     "separateNote": "Independiente de la retención de trazas — solo afecta a los servicios con almacenamiento de registros activado.",
     "reclaimTooltip": "Sin esto, acortar la retención solo cambia el corte hacia adelante — las filas antiguas aún caducan según el calendario propio de ClickHouse en segundo plano, lo cual puede tardar. Marcar esto obliga a ClickHouse a reescribir sus datos y descartar filas caducadas ahora mismo.",
-    "headerLabel": "Retención de patrones de registro"
+    "headerLabel": "Configurar período de retención de registros"
   },
   "logsPanel": {
     "title": "Logs",

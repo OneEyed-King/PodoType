@@ -366,8 +366,8 @@
     "active": "Actif"
   },
   "retentionPanel": {
-    "traceRetention": "Conservation des traces",
-    "configureTraceRetention": "Configurer la conservation des traces",
+    "traceRetention": "Configurer la période de conservation des traces",
+    "configureTraceRetention": "Configurer la période de conservation des traces",
     "couldntLoad": "Impossible de charger les paramètres de conservation : {{error}}",
     "loading": "Chargement des paramètres de conservation…",
     "days_one": "{{count}} jour",
@@ -393,14 +393,14 @@
   "logRetentionPanel": {
     "couldntLoad": "Impossible de charger les paramètres de conservation des journaux : {{error}}",
     "loading": "Chargement des paramètres de conservation des journaux…",
-    "configureTitle": "Configurer la conservation des motifs de journaux",
+    "configureTitle": "Configurer la période de conservation des journaux",
     "recentVolume_one": "Volume récent : ~{{bytes}}/jour (basé sur le dernier jour complet) sur tous les services avec stockage des journaux activé.",
     "recentVolume_other": "Volume récent : ~{{bytes}}/jour (basé sur les {{count}} derniers jours complets) sur tous les services avec stockage des journaux activé.",
     "noVolumeEstimate": "Aucune estimation de volume pour l'instant — elle apparaîtra dès qu'au moins un service aura le stockage des journaux activé (voir l'onglet Logs → Historique d'un service) et aura fonctionné assez longtemps pour avoir une journée complète de données.",
     "tooltip": "Ceci limite la durée de conservation des motifs de journaux STOCKÉS — un paramètre distinct de la conservation des traces ci-dessus, et de ce que le propre pilote de journalisation de Docker fait avec sa propre copie de vos journaux. Raccourcir ceci ne réduit pas l'utilisation du disque de journaux propre à Docker.",
     "separateNote": "Distinct de la conservation des traces — n'affecte que les services avec stockage des journaux activé.",
     "reclaimTooltip": "Sans cela, raccourcir la conservation ne change que la limite pour l'avenir — les anciennes lignes expirent toujours selon le calendrier d'arrière-plan propre de ClickHouse, ce qui peut prendre du temps. Cocher ceci force ClickHouse à réécrire ses données et à supprimer les lignes expirées immédiatement.",
-    "headerLabel": "Conservation des motifs de journaux"
+    "headerLabel": "Configurer la période de conservation des journaux"
   },
   "logsPanel": {
     "title": "Journaux",

@@ -366,8 +366,8 @@
     "active": "Ativo"
   },
   "retentionPanel": {
-    "traceRetention": "Retenção de traces",
-    "configureTraceRetention": "Configurar retenção de traces",
+    "traceRetention": "Configurar período de retenção de traces",
+    "configureTraceRetention": "Configurar período de retenção de traces",
     "couldntLoad": "Não foi possível carregar as configurações de retenção: {{error}}",
     "loading": "Carregando configurações de retenção…",
     "days_one": "{{count}} dia",
@@ -393,14 +393,14 @@
   "logRetentionPanel": {
     "couldntLoad": "Não foi possível carregar as configurações de retenção de logs: {{error}}",
     "loading": "Carregando configurações de retenção de logs…",
-    "configureTitle": "Configurar retenção de padrões de log",
+    "configureTitle": "Configurar período de retenção de logs",
     "recentVolume_one": "Volume recente: ~{{bytes}}/dia (com base no último dia completo) em todos os serviços com armazenamento de log ativado.",
     "recentVolume_other": "Volume recente: ~{{bytes}}/dia (com base nos últimos {{count}} dias completos) em todos os serviços com armazenamento de log ativado.",
     "noVolumeEstimate": "Ainda não há estimativa de volume — ela aparece assim que pelo menos um serviço tiver o armazenamento de log ativado (veja a aba Logs → Histórico de qualquer serviço) e tiver executado por tempo suficiente para ter um dia completo de dados.",
     "tooltip": "Isso limita por quanto tempo os padrões de log ARMAZENADOS são mantidos — uma configuração separada da retenção de traces acima, e do que o próprio driver de log do Docker faz com sua própria cópia dos seus logs. Encurtar isso não reduz o uso de disco de log do próprio Docker.",
     "separateNote": "Separado da retenção de traces — afeta apenas serviços com armazenamento de log ativado.",
     "reclaimTooltip": "Sem isso, encurtar a retenção apenas muda o corte para o futuro — linhas antigas ainda expiram no cronograma de fundo do próprio ClickHouse, o que pode levar um tempo. Marcar isto força o ClickHouse a reescrever seus dados e descartar linhas expiradas agora mesmo.",
-    "headerLabel": "Retenção de padrões de log"
+    "headerLabel": "Configurar período de retenção de logs"
   },
   "logsPanel": {
     "title": "Logs",
