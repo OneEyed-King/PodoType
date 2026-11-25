@@ -782,5 +782,19 @@
     "updatedText": "Actualizado {{time}} — obsoleto después de {{stale}}s, lento por encima de {{slow}}ms",
     "dockerErrorSuffix": " — error de Docker: {{error}}",
     "errorRefreshing": "Error al actualizar: {{error}}"
+  },
+  "observabilityPanel": {
+    "label": "Almacenar logs, métricas y trazas",
+    "tooltip": "Activa o desactiva la recopilación/almacenamiento de datos; no es solo un interruptor de visualización. Desactívalo si solo quieres alertas y monitoreo de disponibilidad: las alertas, comprobaciones de estado, comprobaciones de caducidad TLS y el tiempo de actividad funcionan igual en ambos casos, ya que ninguno depende de esto.",
+    "turnOff": "Desactivar",
+    "turnOn": "Activar",
+    "couldntLoad": "No se pudieron cargar los ajustes de observabilidad: {{error}}",
+    "offNote": "No se están almacenando logs, métricas ni trazas en este momento — solo están activas las alertas y el monitoreo de disponibilidad. Nada más cambia: todo sigue funcionando en segundo plano exactamente igual que antes.",
+    "disabledNoticeWithLabel": "{{label}} no está disponible en este momento — los logs, métricas y trazas no se están almacenando mientras el modo \"solo alertas y disponibilidad\" está activado. Desactívalo en Configuración si quieres recuperarlo.",
+    "disabledNoticeGeneric": "Esto no está disponible en este momento — los logs, métricas y trazas no se están almacenando mientras el modo \"solo alertas y disponibilidad\" está activado. Desactívalo en Configuración si quieres recuperarlo.",
+    "savingEllipsis": "guardando…"
+  },
+  "pollIntervalsPanel": {
+    "configureLabel": "Configurar intervalos de sondeo"
   }
 }

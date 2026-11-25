@@ -782,5 +782,19 @@
     "updatedText": "Updated {{time}} — stale after {{stale}}s, slow above {{slow}}ms",
     "dockerErrorSuffix": " — Docker error: {{error}}",
     "errorRefreshing": "Error refreshing: {{error}}"
+  },
+  "observabilityPanel": {
+    "label": "Store logs, metrics & traces",
+    "tooltip": "Turns data collection/storage on or off — not a view toggle. Turn it off if you only want alerting and uptime monitoring: alerts, health checks, TLS expiry checks, and uptime keep working exactly the same either way, since none of them depend on this.",
+    "turnOff": "Turn off",
+    "turnOn": "Turn on",
+    "couldntLoad": "Couldn't load observability settings: {{error}}",
+    "offNote": "Not storing logs, metrics, or traces right now — only alerts and uptime monitoring are active. Nothing else changes: everything keeps running in the background exactly as before.",
+    "disabledNoticeWithLabel": "{{label}} isn't available right now — logs, metrics, and traces aren't being stored while \"alerts + uptime only\" mode is on. Turn it off under Settings if you want this back.",
+    "disabledNoticeGeneric": "This isn't available right now — logs, metrics, and traces aren't being stored while \"alerts + uptime only\" mode is on. Turn it off under Settings if you want this back.",
+    "savingEllipsis": "saving…"
+  },
+  "pollIntervalsPanel": {
+    "configureLabel": "Configure poll intervals"
   }
 }

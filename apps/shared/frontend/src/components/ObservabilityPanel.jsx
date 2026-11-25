@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api.js';
 import InfoDot from './InfoDot.jsx';
 
@@ -11,6 +12,7 @@ import InfoDot from './InfoDot.jsx';
 // docker-compose edits, no restarts, ever. Flipping it back on just
 // resumes writing to a database that was already there the whole time.
 export default function ObservabilityPanel({ onChange }) {
+  const { t } = useTranslation();
   const [enabled, setEnabled] = useState(null);
   const [loadError, setLoadError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -46,17 +48,19 @@ export default function ObservabilityPanel({ onChange }) {
     }
   }
 
-  if (loadError) return <div className="mb-5 text-[13px] text-down">Couldn't load observability settings: {loadError}</div>;
+  if (loadError) {
+    return <div className="mb-5 text-[13px] text-down">{t('observabilityPanel.couldntLoad', { error: loadError })}</div>;
+  }
 
   return (
     <div className="mb-5 border border-border rounded-lg overflow-hidden">
       <div className="px-3.5 py-2.5 flex items-center justify-between gap-2 flex-wrap">
         <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim inline-flex items-center gap-1.5">
-          Store logs, metrics &amp; traces
-          <InfoDot title="Turns data collection/storage on or off — not a view toggle. Turn it off if you only want alerting and uptime monitoring: alerts, health checks, TLS expiry checks, and uptime keep working exactly the same either way, since none of them depend on this." />
+          {t('observabilityPanel.label')}
+          <InfoDot title={t('observabilityPanel.tooltip')} />
         </span>
         <div className="flex items-center gap-2.5">
-          {saving && <span className="text-[12px] text-muted">saving…</span>}
+          {saving && <span className="text-[12px] text-muted">{t('observabilityPanel.savingEllipsis')}</span>}
           {saveError && <span className="text-[12px] text-down">{saveError}</span>}
           <button
             type="button"
@@ -67,7 +71,7 @@ export default function ObservabilityPanel({ onChange }) {
             className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
               enabled ? 'bg-accent' : 'bg-border'
             }`}
-            title={enabled ? 'Turn off' : 'Turn on'}
+            title={enabled ? t('observabilityPanel.turnOff') : t('observabilityPanel.turnOn')}
           >
             <span
               className={`inline-block h-3.5 w-3.5 transform rounded-full bg-[#f5f7fc] transition-transform ${
@@ -79,8 +83,7 @@ export default function ObservabilityPanel({ onChange }) {
       </div>
       {enabled === false && (
         <div className="px-3.5 py-2 border-t border-border-soft text-[12.5px] text-ink-dim bg-panel-raised">
-          Not storing logs, metrics, or traces right now — only alerts and uptime monitoring are active. Nothing else
-          changes: everything keeps running in the background exactly as before.
+          {t('observabilityPanel.offNote')}
         </div>
       )}
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api.js';
 import InfoDot from './InfoDot.jsx';
 
@@ -61,6 +62,7 @@ const FIELDS = [
 ];
 
 export default function PollIntervalsPanel() {
+  const { t } = useTranslation();
   const [values, setValues] = useState(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({});
@@ -120,7 +122,7 @@ export default function PollIntervalsPanel() {
     return (
       <div className="mb-5 border border-border rounded-lg overflow-hidden">
         <div className="px-3.5 py-2 border-b border-border-soft flex items-center justify-between">
-          <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim">Configure poll intervals</span>
+          <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim">{t('pollIntervalsPanel.configureLabel')}</span>
           <button
             type="button"
             className="link-btn text-muted hover:text-ink text-[15px] leading-none"
@@ -168,7 +170,7 @@ export default function PollIntervalsPanel() {
     <div className="mb-5 border border-border rounded-lg overflow-hidden">
       <div className="px-3.5 py-2 flex items-center justify-between gap-2 flex-wrap">
         <span className="text-[12px] font-bold uppercase tracking-wider text-ink-dim inline-flex items-center gap-1.5">
-          Configure poll intervals
+          {t('pollIntervalsPanel.configureLabel')}
           <InfoDot title="How often this app checks things in the background — health checks, CPU/memory, alert evaluation, TLS certificate expiry, and so on. Editable here instead of an env var + container restart." />
         </span>
         <div className="flex items-center gap-2.5">

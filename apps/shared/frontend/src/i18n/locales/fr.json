@@ -782,5 +782,19 @@
     "updatedText": "Mis à jour {{time}} — obsolète après {{stale}}s, lent au-delà de {{slow}}ms",
     "dockerErrorSuffix": " — erreur Docker : {{error}}",
     "errorRefreshing": "Erreur lors de l'actualisation : {{error}}"
+  },
+  "observabilityPanel": {
+    "label": "Stocker les logs, métriques et traces",
+    "tooltip": "Active ou désactive la collecte/le stockage des données — ce n'est pas un simple bascule d'affichage. Désactivez-le si vous souhaitez uniquement les alertes et la surveillance de disponibilité : les alertes, les contrôles de santé, les vérifications d'expiration TLS et la disponibilité fonctionnent exactement de la même façon dans les deux cas, car aucun d'eux n'en dépend.",
+    "turnOff": "Désactiver",
+    "turnOn": "Activer",
+    "couldntLoad": "Impossible de charger les paramètres d'observabilité : {{error}}",
+    "offNote": "Aucun log, métrique ou trace n'est actuellement stocké — seules les alertes et la surveillance de disponibilité sont actives. Rien d'autre ne change : tout continue de fonctionner en arrière-plan exactement comme avant.",
+    "disabledNoticeWithLabel": "{{label}} n'est pas disponible pour le moment — les logs, métriques et traces ne sont pas stockés tant que le mode « alertes et disponibilité uniquement » est actif. Désactivez-le dans les Paramètres pour le récupérer.",
+    "disabledNoticeGeneric": "Ceci n'est pas disponible pour le moment — les logs, métriques et traces ne sont pas stockés tant que le mode « alertes et disponibilité uniquement » est actif. Désactivez-le dans les Paramètres pour le récupérer.",
+    "savingEllipsis": "enregistrement…"
+  },
+  "pollIntervalsPanel": {
+    "configureLabel": "Configurer les intervalles d'interrogation"
   }
 }

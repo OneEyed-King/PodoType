@@ -782,5 +782,19 @@
     "updatedText": "Aktualisiert {{time}} — veraltet nach {{stale}}s, langsam ab {{slow}}ms",
     "dockerErrorSuffix": " — Docker-Fehler: {{error}}",
     "errorRefreshing": "Fehler beim Aktualisieren: {{error}}"
+  },
+  "observabilityPanel": {
+    "label": "Logs, Metriken & Traces speichern",
+    "tooltip": "Schaltet die Datenerfassung/-speicherung ein oder aus – kein reiner Anzeige-Schalter. Deaktivieren Sie dies, wenn Sie nur Benachrichtigungen und Uptime-Überwachung möchten: Benachrichtigungen, Health-Checks, TLS-Ablaufprüfungen und Uptime funktionieren in beiden Fällen identisch, da keines davon hiervon abhängt.",
+    "turnOff": "Ausschalten",
+    "turnOn": "Einschalten",
+    "couldntLoad": "Observability-Einstellungen konnten nicht geladen werden: {{error}}",
+    "offNote": "Derzeit werden keine Logs, Metriken oder Traces gespeichert — nur Benachrichtigungen und Uptime-Überwachung sind aktiv. Alles andere bleibt unverändert: Alles läuft im Hintergrund genau wie zuvor weiter.",
+    "disabledNoticeWithLabel": "{{label}} ist derzeit nicht verfügbar — Logs, Metriken und Traces werden nicht gespeichert, solange der Modus „Nur Benachrichtigungen & Uptime“ aktiv ist. Schalten Sie ihn unter Einstellungen aus, um dies wieder zu aktivieren.",
+    "disabledNoticeGeneric": "Dies ist derzeit nicht verfügbar — Logs, Metriken und Traces werden nicht gespeichert, solange der Modus „Nur Benachrichtigungen & Uptime“ aktiv ist. Schalten Sie ihn unter Einstellungen aus, um dies wieder zu aktivieren.",
+    "savingEllipsis": "wird gespeichert…"
+  },
+  "pollIntervalsPanel": {
+    "configureLabel": "Abrufintervalle konfigurieren"
   }
 }
