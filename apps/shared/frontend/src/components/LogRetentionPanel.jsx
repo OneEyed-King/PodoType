@@ -205,13 +205,14 @@ export default function LogRetentionPanel() {
               ({t('retentionPanel.recentVolumeShort', { bytes: dailyBytesText })})
             </span>
           )}
+          <InfoDot title={t('logRetentionPanel.tooltip')} />
         </span>
         <div className="flex items-center gap-2.5">
           <button type="button" className="link-btn text-[12px]" onClick={load} title={t('retentionPanel.refreshTooltip')}>
             ↻
           </button>
           <button type="button" className="link-btn text-[12px]" onClick={openEditor}>
-            ⚙ {t('alertsPanel.configure')}
+            {t('alertsPanel.configure')}
           </button>
         </div>
       </div>

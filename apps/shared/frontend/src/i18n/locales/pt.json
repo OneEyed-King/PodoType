@@ -234,7 +234,7 @@
     "portHint": "465 = SSL, 587 = STARTTLS",
     "senderPlaceholder": "Endereço da caixa de e-mail (remetente) — voce@seudominio.com",
     "passwordPlaceholder": "Senha (ou senha de aplicativo)",
-    "sendToPlaceholder": "Enviar alertas para este endereço",
+    "sendToPlaceholder": "Enviar alertas para um ou mais endereços, separados por vírgula",
     "sendingTest": "Enviando…",
     "sendTestMessage": "Enviar mensagem de teste",
     "delivered": "✓ entregue",
@@ -366,8 +366,8 @@
     "active": "Ativo"
   },
   "retentionPanel": {
-    "traceRetention": "Retenção de traces",
-    "configureTraceRetention": "Configurar retenção de traces",
+    "traceRetention": "Configurar período de retenção de traces",
+    "configureTraceRetention": "Configurar período de retenção de traces",
     "couldntLoad": "Não foi possível carregar as configurações de retenção: {{error}}",
     "loading": "Carregando configurações de retenção…",
     "days_one": "{{count}} dia",
@@ -393,14 +393,14 @@
   "logRetentionPanel": {
     "couldntLoad": "Não foi possível carregar as configurações de retenção de logs: {{error}}",
     "loading": "Carregando configurações de retenção de logs…",
-    "configureTitle": "Configurar retenção de padrões de log",
+    "configureTitle": "Configurar período de retenção de logs",
     "recentVolume_one": "Volume recente: ~{{bytes}}/dia (com base no último dia completo) em todos os serviços com armazenamento de log ativado.",
     "recentVolume_other": "Volume recente: ~{{bytes}}/dia (com base nos últimos {{count}} dias completos) em todos os serviços com armazenamento de log ativado.",
     "noVolumeEstimate": "Ainda não há estimativa de volume — ela aparece assim que pelo menos um serviço tiver o armazenamento de log ativado (veja a aba Logs → Histórico de qualquer serviço) e tiver executado por tempo suficiente para ter um dia completo de dados.",
     "tooltip": "Isso limita por quanto tempo os padrões de log ARMAZENADOS são mantidos — uma configuração separada da retenção de traces acima, e do que o próprio driver de log do Docker faz com sua própria cópia dos seus logs. Encurtar isso não reduz o uso de disco de log do próprio Docker.",
     "separateNote": "Separado da retenção de traces — afeta apenas serviços com armazenamento de log ativado.",
     "reclaimTooltip": "Sem isso, encurtar a retenção apenas muda o corte para o futuro — linhas antigas ainda expiram no cronograma de fundo do próprio ClickHouse, o que pode levar um tempo. Marcar isto força o ClickHouse a reescrever seus dados e descartar linhas expiradas agora mesmo.",
-    "headerLabel": "Retenção de padrões de log"
+    "headerLabel": "Configurar período de retenção de logs"
   },
   "logsPanel": {
     "title": "Logs",
@@ -782,5 +782,19 @@
     "updatedText": "Atualizado {{time}} — obsoleto após {{stale}}s, lento acima de {{slow}}ms",
     "dockerErrorSuffix": " — erro do Docker: {{error}}",
     "errorRefreshing": "Erro ao atualizar: {{error}}"
+  },
+  "observabilityPanel": {
+    "label": "Armazenar logs, métricas e rastreamentos",
+    "tooltip": "Ativa ou desativa a coleta/armazenamento de dados — não é apenas um alternador de visualização. Desative se você quiser apenas alertas e monitoramento de disponibilidade: alertas, verificações de integridade, verificações de expiração TLS e disponibilidade continuam funcionando exatamente da mesma forma em ambos os casos, já que nenhum deles depende disso.",
+    "turnOff": "Desativar",
+    "turnOn": "Ativar",
+    "couldntLoad": "Não foi possível carregar as configurações de observabilidade: {{error}}",
+    "offNote": "Nenhum log, métrica ou rastreamento está sendo armazenado no momento — apenas alertas e monitoramento de disponibilidade estão ativos. Nada mais muda: tudo continua rodando em segundo plano exatamente como antes.",
+    "disabledNoticeWithLabel": "{{label}} não está disponível no momento — logs, métricas e rastreamentos não estão sendo armazenados enquanto o modo \"somente alertas e disponibilidade\" está ativo. Desative-o em Configurações se quiser isso de volta.",
+    "disabledNoticeGeneric": "Isso não está disponível no momento — logs, métricas e rastreamentos não estão sendo armazenados enquanto o modo \"somente alertas e disponibilidade\" está ativo. Desative-o em Configurações se quiser isso de volta.",
+    "savingEllipsis": "salvando…"
+  },
+  "pollIntervalsPanel": {
+    "configureLabel": "Configurar intervalos de verificação"
   }
 }

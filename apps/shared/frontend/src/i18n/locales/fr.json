@@ -234,7 +234,7 @@
     "portHint": "465 = SSL, 587 = STARTTLS",
     "senderPlaceholder": "Adresse de la boîte mail (expéditeur) — vous@votredomaine.com",
     "passwordPlaceholder": "Mot de passe (ou mot de passe d'application)",
-    "sendToPlaceholder": "Envoyer les alertes à cette adresse",
+    "sendToPlaceholder": "Envoyer les alertes à une ou plusieurs adresses, séparées par des virgules",
     "sendingTest": "Envoi…",
     "sendTestMessage": "Envoyer un message de test",
     "delivered": "✓ livré",
@@ -366,8 +366,8 @@
     "active": "Actif"
   },
   "retentionPanel": {
-    "traceRetention": "Conservation des traces",
-    "configureTraceRetention": "Configurer la conservation des traces",
+    "traceRetention": "Configurer la période de conservation des traces",
+    "configureTraceRetention": "Configurer la période de conservation des traces",
     "couldntLoad": "Impossible de charger les paramètres de conservation : {{error}}",
     "loading": "Chargement des paramètres de conservation…",
     "days_one": "{{count}} jour",
@@ -393,14 +393,14 @@
   "logRetentionPanel": {
     "couldntLoad": "Impossible de charger les paramètres de conservation des journaux : {{error}}",
     "loading": "Chargement des paramètres de conservation des journaux…",
-    "configureTitle": "Configurer la conservation des motifs de journaux",
+    "configureTitle": "Configurer la période de conservation des journaux",
     "recentVolume_one": "Volume récent : ~{{bytes}}/jour (basé sur le dernier jour complet) sur tous les services avec stockage des journaux activé.",
     "recentVolume_other": "Volume récent : ~{{bytes}}/jour (basé sur les {{count}} derniers jours complets) sur tous les services avec stockage des journaux activé.",
     "noVolumeEstimate": "Aucune estimation de volume pour l'instant — elle apparaîtra dès qu'au moins un service aura le stockage des journaux activé (voir l'onglet Logs → Historique d'un service) et aura fonctionné assez longtemps pour avoir une journée complète de données.",
     "tooltip": "Ceci limite la durée de conservation des motifs de journaux STOCKÉS — un paramètre distinct de la conservation des traces ci-dessus, et de ce que le propre pilote de journalisation de Docker fait avec sa propre copie de vos journaux. Raccourcir ceci ne réduit pas l'utilisation du disque de journaux propre à Docker.",
     "separateNote": "Distinct de la conservation des traces — n'affecte que les services avec stockage des journaux activé.",
     "reclaimTooltip": "Sans cela, raccourcir la conservation ne change que la limite pour l'avenir — les anciennes lignes expirent toujours selon le calendrier d'arrière-plan propre de ClickHouse, ce qui peut prendre du temps. Cocher ceci force ClickHouse à réécrire ses données et à supprimer les lignes expirées immédiatement.",
-    "headerLabel": "Conservation des motifs de journaux"
+    "headerLabel": "Configurer la période de conservation des journaux"
   },
   "logsPanel": {
     "title": "Journaux",
@@ -782,5 +782,19 @@
     "updatedText": "Mis à jour {{time}} — obsolète après {{stale}}s, lent au-delà de {{slow}}ms",
     "dockerErrorSuffix": " — erreur Docker : {{error}}",
     "errorRefreshing": "Erreur lors de l'actualisation : {{error}}"
+  },
+  "observabilityPanel": {
+    "label": "Stocker les logs, métriques et traces",
+    "tooltip": "Active ou désactive la collecte/le stockage des données — ce n'est pas un simple bascule d'affichage. Désactivez-le si vous souhaitez uniquement les alertes et la surveillance de disponibilité : les alertes, les contrôles de santé, les vérifications d'expiration TLS et la disponibilité fonctionnent exactement de la même façon dans les deux cas, car aucun d'eux n'en dépend.",
+    "turnOff": "Désactiver",
+    "turnOn": "Activer",
+    "couldntLoad": "Impossible de charger les paramètres d'observabilité : {{error}}",
+    "offNote": "Aucun log, métrique ou trace n'est actuellement stocké — seules les alertes et la surveillance de disponibilité sont actives. Rien d'autre ne change : tout continue de fonctionner en arrière-plan exactement comme avant.",
+    "disabledNoticeWithLabel": "{{label}} n'est pas disponible pour le moment — les logs, métriques et traces ne sont pas stockés tant que le mode « alertes et disponibilité uniquement » est actif. Désactivez-le dans les Paramètres pour le récupérer.",
+    "disabledNoticeGeneric": "Ceci n'est pas disponible pour le moment — les logs, métriques et traces ne sont pas stockés tant que le mode « alertes et disponibilité uniquement » est actif. Désactivez-le dans les Paramètres pour le récupérer.",
+    "savingEllipsis": "enregistrement…"
+  },
+  "pollIntervalsPanel": {
+    "configureLabel": "Configurer les intervalles d'interrogation"
   }
 }

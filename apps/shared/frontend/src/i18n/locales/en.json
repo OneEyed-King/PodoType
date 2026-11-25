@@ -234,7 +234,7 @@
     "portHint": "465 = SSL, 587 = STARTTLS",
     "senderPlaceholder": "Mailbox address (sender) — you@yourdomain.com",
     "passwordPlaceholder": "Password (or app-specific password)",
-    "sendToPlaceholder": "Send alerts to this address",
+    "sendToPlaceholder": "Send alerts to one or more addresses, comma-separated",
     "sendingTest": "Sending…",
     "sendTestMessage": "Send test message",
     "delivered": "✓ delivered",
@@ -366,8 +366,8 @@
     "active": "Active"
   },
   "retentionPanel": {
-    "traceRetention": "Trace retention",
-    "configureTraceRetention": "Configure trace retention",
+    "traceRetention": "Configure trace retention period",
+    "configureTraceRetention": "Configure trace retention period",
     "couldntLoad": "Couldn't load retention settings: {{error}}",
     "loading": "Loading retention settings…",
     "days_one": "{{count}} day",
@@ -393,14 +393,14 @@
   "logRetentionPanel": {
     "couldntLoad": "Couldn't load log retention settings: {{error}}",
     "loading": "Loading log retention settings…",
-    "configureTitle": "Configure log-pattern retention",
+    "configureTitle": "Configure log retention period",
     "recentVolume_one": "Recent volume: ~{{bytes}}/day (based on the last {{count}} full day) across every service with log storage turned on.",
     "recentVolume_other": "Recent volume: ~{{bytes}}/day (based on the last {{count}} full days) across every service with log storage turned on.",
     "noVolumeEstimate": "No volume estimate yet — this fills in once at least one service has log storage enabled (see any service's Logs → History tab) and has been running long enough to have a full day of data.",
     "tooltip": "This bounds how long STORED log patterns are kept — a separate setting from trace retention above, and from whatever Docker's own log driver does with its own copy of your logs. Shortening this doesn't reduce Docker's own log disk usage at all.",
     "separateNote": "Separate from trace retention — this only affects services with log storage turned on.",
     "reclaimTooltip": "Without this, shortening retention only changes the cutoff going forward — old rows still age out on ClickHouse's own background schedule, which can take a while. Checking this forces ClickHouse to rewrite its data and drop expired rows right now instead.",
-    "headerLabel": "Log-pattern retention"
+    "headerLabel": "Configure log retention period"
   },
   "logsPanel": {
     "title": "Logs",
@@ -782,5 +782,19 @@
     "updatedText": "Updated {{time}} — stale after {{stale}}s, slow above {{slow}}ms",
     "dockerErrorSuffix": " — Docker error: {{error}}",
     "errorRefreshing": "Error refreshing: {{error}}"
+  },
+  "observabilityPanel": {
+    "label": "Store logs, metrics & traces",
+    "tooltip": "Turns data collection/storage on or off — not a view toggle. Turn it off if you only want alerting and uptime monitoring: alerts, health checks, TLS expiry checks, and uptime keep working exactly the same either way, since none of them depend on this.",
+    "turnOff": "Turn off",
+    "turnOn": "Turn on",
+    "couldntLoad": "Couldn't load observability settings: {{error}}",
+    "offNote": "Not storing logs, metrics, or traces right now — only alerts and uptime monitoring are active. Nothing else changes: everything keeps running in the background exactly as before.",
+    "disabledNoticeWithLabel": "{{label}} isn't available right now — logs, metrics, and traces aren't being stored while \"alerts + uptime only\" mode is on. Turn it off under Settings if you want this back.",
+    "disabledNoticeGeneric": "This isn't available right now — logs, metrics, and traces aren't being stored while \"alerts + uptime only\" mode is on. Turn it off under Settings if you want this back.",
+    "savingEllipsis": "saving…"
+  },
+  "pollIntervalsPanel": {
+    "configureLabel": "Configure poll intervals"
   }
 }

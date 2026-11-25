@@ -234,7 +234,7 @@
     "portHint": "465 = SSL, 587 = STARTTLS",
     "senderPlaceholder": "Postfachadresse (Absender) — sie@ihredomain.de",
     "passwordPlaceholder": "Passwort (oder App-Passwort)",
-    "sendToPlaceholder": "Warnungen an diese Adresse senden",
+    "sendToPlaceholder": "Warnungen an eine oder mehrere Adressen senden, durch Komma getrennt",
     "sendingTest": "Wird gesendet…",
     "sendTestMessage": "Testnachricht senden",
     "delivered": "✓ zugestellt",
@@ -366,8 +366,8 @@
     "active": "Aktiv"
   },
   "retentionPanel": {
-    "traceRetention": "Trace-Aufbewahrung",
-    "configureTraceRetention": "Trace-Aufbewahrung konfigurieren",
+    "traceRetention": "Trace-Aufbewahrungszeitraum konfigurieren",
+    "configureTraceRetention": "Trace-Aufbewahrungszeitraum konfigurieren",
     "couldntLoad": "Aufbewahrungseinstellungen konnten nicht geladen werden: {{error}}",
     "loading": "Aufbewahrungseinstellungen werden geladen…",
     "days_one": "{{count}} Tag",
@@ -393,14 +393,14 @@
   "logRetentionPanel": {
     "couldntLoad": "Protokoll-Aufbewahrungseinstellungen konnten nicht geladen werden: {{error}}",
     "loading": "Protokoll-Aufbewahrungseinstellungen werden geladen…",
-    "configureTitle": "Log-Muster-Aufbewahrung konfigurieren",
+    "configureTitle": "Log-Aufbewahrungszeitraum konfigurieren",
     "recentVolume_one": "Aktuelles Volumen: ~{{bytes}}/Tag (basierend auf dem letzten vollen Tag) über alle Services mit aktivierter Protokollspeicherung.",
     "recentVolume_other": "Aktuelles Volumen: ~{{bytes}}/Tag (basierend auf den letzten {{count}} vollen Tagen) über alle Services mit aktivierter Protokollspeicherung.",
     "noVolumeEstimate": "Noch keine Volumenschätzung — sie erscheint, sobald mindestens ein Service die Protokollspeicherung aktiviert hat (siehe den Logs → Verlauf-Tab eines Services) und lange genug läuft, um einen vollen Tag an Daten zu haben.",
     "tooltip": "Dies begrenzt, wie lange GESPEICHERTE Log-Muster aufbewahrt werden — eine eigene Einstellung, getrennt von der Trace-Aufbewahrung oben und von dem, was Dockers eigener Log-Treiber mit seiner eigenen Kopie Ihrer Logs macht. Eine Verkürzung reduziert Dockers eigenen Log-Speicherverbrauch nicht.",
     "separateNote": "Getrennt von der Trace-Aufbewahrung — betrifft nur Services mit aktivierter Protokollspeicherung.",
     "reclaimTooltip": "Ohne dies ändert eine Verkürzung der Aufbewahrung nur den Grenzwert für die Zukunft — alte Zeilen laufen weiterhin nach ClickHouses eigenem Hintergrundzeitplan ab, was dauern kann. Diese Option zwingt ClickHouse, seine Daten jetzt sofort neu zu schreiben und abgelaufene Zeilen zu löschen.",
-    "headerLabel": "Log-Muster-Aufbewahrung"
+    "headerLabel": "Log-Aufbewahrungszeitraum konfigurieren"
   },
   "logsPanel": {
     "title": "Logs",
@@ -782,5 +782,19 @@
     "updatedText": "Aktualisiert {{time}} — veraltet nach {{stale}}s, langsam ab {{slow}}ms",
     "dockerErrorSuffix": " — Docker-Fehler: {{error}}",
     "errorRefreshing": "Fehler beim Aktualisieren: {{error}}"
+  },
+  "observabilityPanel": {
+    "label": "Logs, Metriken & Traces speichern",
+    "tooltip": "Schaltet die Datenerfassung/-speicherung ein oder aus – kein reiner Anzeige-Schalter. Deaktivieren Sie dies, wenn Sie nur Benachrichtigungen und Uptime-Überwachung möchten: Benachrichtigungen, Health-Checks, TLS-Ablaufprüfungen und Uptime funktionieren in beiden Fällen identisch, da keines davon hiervon abhängt.",
+    "turnOff": "Ausschalten",
+    "turnOn": "Einschalten",
+    "couldntLoad": "Observability-Einstellungen konnten nicht geladen werden: {{error}}",
+    "offNote": "Derzeit werden keine Logs, Metriken oder Traces gespeichert — nur Benachrichtigungen und Uptime-Überwachung sind aktiv. Alles andere bleibt unverändert: Alles läuft im Hintergrund genau wie zuvor weiter.",
+    "disabledNoticeWithLabel": "{{label}} ist derzeit nicht verfügbar — Logs, Metriken und Traces werden nicht gespeichert, solange der Modus „Nur Benachrichtigungen & Uptime“ aktiv ist. Schalten Sie ihn unter Einstellungen aus, um dies wieder zu aktivieren.",
+    "disabledNoticeGeneric": "Dies ist derzeit nicht verfügbar — Logs, Metriken und Traces werden nicht gespeichert, solange der Modus „Nur Benachrichtigungen & Uptime“ aktiv ist. Schalten Sie ihn unter Einstellungen aus, um dies wieder zu aktivieren.",
+    "savingEllipsis": "wird gespeichert…"
+  },
+  "pollIntervalsPanel": {
+    "configureLabel": "Abrufintervalle konfigurieren"
   }
 }

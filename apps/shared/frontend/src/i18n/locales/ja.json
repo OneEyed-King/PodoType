@@ -232,7 +232,7 @@
     "portHint": "465 = SSL、587 = STARTTLS",
     "senderPlaceholder": "メールボックスアドレス（送信者） — you@yourdomain.com",
     "passwordPlaceholder": "パスワード（またはアプリ専用パスワード）",
-    "sendToPlaceholder": "アラートの送信先アドレス",
+    "sendToPlaceholder": "アラートの送信先アドレス（複数の場合はカンマ区切り）",
     "sendingTest": "送信中…",
     "sendTestMessage": "テストメッセージを送信",
     "delivered": "✓ 配信されました",
@@ -351,8 +351,8 @@
     "active": "アクティブ"
   },
   "retentionPanel": {
-    "traceRetention": "トレース保持期間",
-    "configureTraceRetention": "トレース保持期間を設定",
+    "traceRetention": "トレースの保持期間を設定",
+    "configureTraceRetention": "トレースの保持期間を設定",
     "couldntLoad": "保持設定を読み込めませんでした: {{error}}",
     "loading": "保持設定を読み込み中…",
     "days_other": "{{count}}日",
@@ -376,13 +376,13 @@
   "logRetentionPanel": {
     "couldntLoad": "ログ保持設定を読み込めませんでした: {{error}}",
     "loading": "ログ保持設定を読み込み中…",
-    "configureTitle": "ログパターンの保持を設定",
+    "configureTitle": "ログの保持期間を設定",
     "recentVolume_other": "直近のボリューム: ~{{bytes}}/日（ログ保存が有効なすべてのサービスで、直近{{count}}日間の完全な日に基づく）。",
     "noVolumeEstimate": "まだボリューム推定はありません — 少なくとも1つのサービスでログ保存が有効になり（任意のサービスのLogs→Historyタブを参照）、1日分の完全なデータが得られるまで十分に稼働すると表示されます。",
     "tooltip": "これは保存されたログパターンを保持する期間を制限します — 上記のトレース保持とは別の設定であり、Docker自身のログドライバーがログのコピーに対して行うこととも別です。これを短くしてもDocker自身のログのディスク使用量は減りません。",
     "separateNote": "トレース保持とは別です — ログ保存が有効なサービスのみに影響します。",
     "reclaimTooltip": "これをオンにしない場合、保持期間を短くしても今後の境界だけが変わります。古い行はClickHouse自身のバックグラウンドスケジュールで期限切れになり、時間がかかることがあります。これをチェックすると、ClickHouseはデータを即座に書き換えて期限切れの行を削除します。",
-    "headerLabel": "ログパターン保持"
+    "headerLabel": "ログの保持期間を設定"
   },
   "logsPanel": {
     "title": "ログ",
@@ -757,5 +757,19 @@
     "updatedText": "更新: {{time}} — {{stale}}秒後に古くなり、{{slow}}ms超で遅延と判定",
     "dockerErrorSuffix": " — Dockerエラー: {{error}}",
     "errorRefreshing": "更新エラー: {{error}}"
+  },
+  "observabilityPanel": {
+    "label": "ログ・メトリクス・トレースを保存",
+    "tooltip": "データの収集・保存のオン/オフを切り替えます（表示だけの切り替えではありません）。アラートと稼働監視だけを使いたい場合はオフにしてください。アラート、ヘルスチェック、TLS有効期限チェック、稼働監視はいずれもこの設定に依存しないため、オン/オフどちらでも同じように動作します。",
+    "turnOff": "オフにする",
+    "turnOn": "オンにする",
+    "couldntLoad": "オブザーバビリティ設定を読み込めませんでした: {{error}}",
+    "offNote": "現在、ログ・メトリクス・トレースは保存されていません — アラートと稼働監視のみが有効です。それ以外は変わりません。バックグラウンドでは以前とまったく同じように動作し続けます。",
+    "disabledNoticeWithLabel": "{{label}}は現在利用できません — 「アラート・稼働監視のみ」モードが有効な間、ログ・メトリクス・トレースは保存されません。元に戻すには設定でオフにしてください。",
+    "disabledNoticeGeneric": "これは現在利用できません — 「アラート・稼働監視のみ」モードが有効な間、ログ・メトリクス・トレースは保存されません。元に戻すには設定でオフにしてください。",
+    "savingEllipsis": "保存中…"
+  },
+  "pollIntervalsPanel": {
+    "configureLabel": "ポーリング間隔を設定"
   }
 }
