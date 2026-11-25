@@ -5867,7 +5867,19 @@ app.post('/api/alerts/config', (req, res) => {
     }
     if (e.smtpUser !== undefined) next.channels.email.smtpUser = String(e.smtpUser).trim();
     if (e.smtpPassword !== undefined) next.channels.email.smtpPassword = String(e.smtpPassword).trim();
-    if (e.to !== undefined) next.channels.email.to = String(e.to).trim();
+    // Multiple recipients are supported — nodemailer's `to` field already
+    // accepts a comma-separated address list as-is, so sending needed no
+    // change at all. This just normalizes what gets saved: trims each
+    // address and drops empty entries from stray/trailing commas, so
+    // inconsistent spacing from the UI never turns into a malformed
+    // recipient list.
+    if (e.to !== undefined) {
+      next.channels.email.to = String(e.to)
+        .split(',')
+        .map((addr) => addr.trim())
+        .filter(Boolean)
+        .join(', ');
+    }
   }
 
   state.alertConfig = next;

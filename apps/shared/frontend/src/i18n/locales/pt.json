@@ -234,7 +234,7 @@
     "portHint": "465 = SSL, 587 = STARTTLS",
     "senderPlaceholder": "Endereço da caixa de e-mail (remetente) — voce@seudominio.com",
     "passwordPlaceholder": "Senha (ou senha de aplicativo)",
-    "sendToPlaceholder": "Enviar alertas para este endereço",
+    "sendToPlaceholder": "Enviar alertas para um ou mais endereços, separados por vírgula",
     "sendingTest": "Enviando…",
     "sendTestMessage": "Enviar mensagem de teste",
     "delivered": "✓ entregue",

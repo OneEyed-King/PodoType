@@ -238,7 +238,7 @@
     "portHint": "465 = SSL, 587 = STARTTLS",
     "senderPlaceholder": "Адрес почтового ящика (отправитель) — you@yourdomain.com",
     "passwordPlaceholder": "Пароль (или пароль приложения)",
-    "sendToPlaceholder": "Отправлять оповещения на этот адрес",
+    "sendToPlaceholder": "Отправлять оповещения на один или несколько адресов через запятую",
     "sendingTest": "Отправка…",
     "sendTestMessage": "Отправить тестовое сообщение",
     "delivered": "✓ доставлено",

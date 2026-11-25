@@ -234,7 +234,7 @@
     "portHint": "465 = SSL, 587 = STARTTLS",
     "senderPlaceholder": "Postfachadresse (Absender) — sie@ihredomain.de",
     "passwordPlaceholder": "Passwort (oder App-Passwort)",
-    "sendToPlaceholder": "Warnungen an diese Adresse senden",
+    "sendToPlaceholder": "Warnungen an eine oder mehrere Adressen senden, durch Komma getrennt",
     "sendingTest": "Wird gesendet…",
     "sendTestMessage": "Testnachricht senden",
     "delivered": "✓ zugestellt",
