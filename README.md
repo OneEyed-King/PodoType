@@ -6,7 +6,7 @@ Zero-instrumentation observability, built specifically for your Docker
 Compose stack — traces, RED metrics, logs, and container health,
 auto-captured via eBPF (Beyla), with no code changes to your own services.
 Two containers, one command, free and self-hosted forever under the
-Elastic License 2.0.
+MIT License.
 
 ## Features
 
@@ -46,7 +46,7 @@ Elastic License 2.0.
   bundled ClickHouse container — no separate Tempo, Prometheus, and Loki
   stack to provision and keep talking to each other.
 - **Unlimited, on your own infrastructure.** No container cap, no feature
-  gate, self-hosted under the Elastic License 2.0. Your telemetry data
+  gate, self-hosted and MIT licensed. Your telemetry data
   never leaves your network.
 - **Login on by default.** HTTP Basic Auth in front of the whole
   dashboard, `admin`/`admin` out of the box — change it in `.env` before
@@ -321,7 +321,6 @@ Docker Desktop, since it doesn't depend on eBPF at all.
 
 ## License
 
-[Elastic License 2.0](https://www.elastic.co/licensing/elastic-license) —
-see `LICENSE`. Free to use, self-host, modify, and redistribute, including
-commercially for your own use. The one thing it doesn't allow is offering
-PodoType itself to third parties as a hosted/managed service.
+[MIT](https://opensource.org/licenses/MIT) — see `LICENSE`. Free to use,
+self-host, modify, and redistribute, including commercially, with no
+restrictions.
